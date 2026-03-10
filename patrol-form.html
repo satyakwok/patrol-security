@@ -420,6 +420,42 @@ let state = {
 let qrReader = null;
 
 // =====================
+// BACKGROUND GPS TRACKING
+// =====================
+let _trackTimer = null;
+
+function startTracking() {
+  if (_trackTimer) return; // sudah jalan
+  sendTrackPoint();         // kirim langsung saat mulai
+  _trackTimer = setInterval(sendTrackPoint, 30000); // lalu tiap 30 detik
+}
+
+function stopTracking() {
+  if (_trackTimer) { clearInterval(_trackTimer); _trackTimer = null; }
+}
+
+function sendTrackPoint() {
+  // Hanya kirim kalau GPS dan nama sudah tersedia
+  if (!state.gpsLat || !state.gpsLng || !state.nama) return;
+  const payload = {
+    type: 'track',
+    nama: state.nama,
+    shift: state.shift || '',
+    blok: state.blok || '',
+    gpsLat: state.gpsLat,
+    gpsLng: state.gpsLng,
+    gpsAccuracy: state.gpsAccuracy || '',
+    timestamp: new Date().toLocaleString('id-ID'),
+    timestampMs: Date.now()
+  };
+  fetch(APPS_SCRIPT_URL, {
+    method: 'POST', mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(() => {}); // silent fail, jangan ganggu user
+}
+
+// =====================
 // CLOCK
 // =====================
 function updateClock() {
@@ -503,6 +539,9 @@ function goPage(n) {
         return;
       }
     }
+
+    // Mulai background GPS tracking
+    startTracking();
   }
 
   // Validasi page 3 → 4
@@ -712,6 +751,7 @@ async function submitLaporan() {
 // RESET
 // =====================
 function resetForm() {
+  stopTracking(); // hentikan background tracking
   state = { nama:'', shift:'', blok:'', gpsLat:null, gpsLng:null, gpsAccuracy:null, photoBase64:null, photoTimestamp:null, status:'', catatan:'', qrVerified:false, waktu:'', stream:null };
   document.getElementById('nama').value = '';
   document.getElementById('blok-select').value = '';
