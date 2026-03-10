@@ -674,6 +674,7 @@ async function submitLaporan() {
   btn.disabled = true;
   btn.innerHTML = '<span class="submit-icon">⏳</span><span class="submit-text">Mengirim...</span>';
   document.getElementById('submit-error').style.display = 'none';
+  
   const payload = {
     nama: state.nama, shift: state.shift, pos: state.blok,
     waktu: new Date().toLocaleString('id-ID'),
@@ -683,22 +684,41 @@ async function submitLaporan() {
     status: state.status, catatan: state.catatan,
     foto: state.photoBase64 || '',
   };
+  
   try {
     await fetch(APPS_SCRIPT_URL, {
       method: 'POST', 
-      mode: 'no-cors', // Tetap pakai no-cors
+      mode: 'no-cors',
       headers: { 
-        'Content-Type': 'text/plain;charset=utf-8' // PENTING: Wajib text/plain agar browser tidak memblokir foto
+        'Content-Type': 'text/plain;charset=utf-8' 
       },
       body: JSON.stringify(payload)
     });
-    });
+    
+    // Simpan ke local storage buat backup HP
+    const reports = JSON.parse(localStorage.getItem('patrol_reports') || '[]');
+    reports.unshift({ ...payload, id: Date.now() });
+    localStorage.setItem('patrol_reports', JSON.stringify(reports.slice(0, 200)));
+    
+    // Update data di halaman sukses
+    document.getElementById('s-nama').textContent = state.nama;
+    document.getElementById('s-pos').textContent = state.blok;
+    document.getElementById('s-status').textContent = state.status;
+    document.getElementById('s-status').className = 'val ' + (state.status === 'AMAN' ? 'green' : 'red');
+    document.getElementById('s-waktu').textContent = new Date().toLocaleString('id-ID');
+    
+    // Pindah ke halaman 5 (Sukses)
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-5').classList.add('active');
+    window.scrollTo(0, 0);
+
   } catch(e) {
+    console.error('Error saat submit:', e);
     document.getElementById('submit-error').style.display = 'flex';
     btn.disabled = false;
     btn.innerHTML = '<span class="submit-icon">🚀</span><span class="submit-text">KIRIM LAPORAN</span><span class="submit-arrow">→</span>';
-    return;
   }
+}
   const reports = JSON.parse(localStorage.getItem('patrol_reports') || '[]');
   reports.unshift({ ...payload, id: Date.now() });
   localStorage.setItem('patrol_reports', JSON.stringify(reports.slice(0, 200)));
