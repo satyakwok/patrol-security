@@ -1,0 +1,17 @@
+{
+  "name": "Patroli Security - Kebun Gunung Sahilan",
+  "short_name": "Patroli",
+  "description": "Aplikasi patroli security dengan mode offline",
+  "start_url": "./patrol-form.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f7f5",
+  "theme_color": "#004b31",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='24' fill='%23004b31'/><text y='140' x='50%' text-anchor='middle' font-size='120'>🛡️</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
