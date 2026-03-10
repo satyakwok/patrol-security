@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🖥️ Dashboard Admin - Patroli Security</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+:root{
+  --bg:#060810;--surface:#0b1a17;--card:#0F1520;--card2:#131B28;
+  --border:#182030;--accent:#00D4FF;--green:#00FF88;--danger:#FF4444;
+  --warn:#FFB800;--text:#E8F4FF;--muted:#3A5070;--muted2:#5A7090;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.02) 1px,transparent 1px);background-size:50px 50px;pointer-events:none;}
+.topbar{background:linear-gradient(180deg,#0A1220,var(--surface));border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;flex-shrink:0;}
+.topbar-left{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--accent),#005577);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.logo-title{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--accent);letter-spacing:1px;}
+.logo-sub{font-size:10px;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.live-badge{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.25);font-size:12px;color:var(--green);font-weight:600;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.clock-top{font-family:'Rajdhani',sans-serif;font-size:20px;color:var(--accent);font-weight:700;}
+.nav-tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto;flex-shrink:0;}
+.nav-tab{padding:14px 20px;border:none;background:transparent;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;display:flex;align-items:center;gap:7px;white-space:nowrap;transition:all .2s;}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-badge{background:var(--danger);color:#fff;border-radius:999px;padding:1px 7px;font-size:10px;font-weight:700;}
+.main{flex:1;padding:20px 24px;overflow-y:auto;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.stat-card.blue::before{background:var(--accent);}
+.stat-card.green::before{background:var(--green);}
+.stat-card.red::before{background:var(--danger);}
+.stat-card.warn::before{background:var(--warn);}
+.stat-label{font-size:11px;color:var(--muted2);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
+.stat-value{font-family:'Rajdhani',sans-serif;font-size:32px;font-weight:700;line-height:1;}
+.stat-card.blue .stat-value{color:var(--accent);}
+.stat-card.green .stat-value{color:var(--green);}
+.stat-card.red .stat-value{color:var(--danger);}
+.stat-card.warn .stat-value{color:var(--warn);}
+.stat-sub{font-size:11px;color:var(--muted2);margin-top:4px;}
+.map-container{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:20px;}
+.map-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.map-title{font-family:'Rajdhani',sans-serif;font-size:18px;color:var(--text);font-weight:700;}
+#live-map{height:380px;background:#0A1520;}
+#live-map-full{height:520px;background:#0A1520;}
+.map-legend{padding:10px 18px;display:flex;gap:14px;flex-wrap:wrap;border-top:1px solid var(--border);}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted2);}
+.legend-dot{width:10px;height:10px;border-radius:50%;}
+.reports-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.reports-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;}
+.filter-group{display:flex;gap:8px;flex-wrap:wrap;}
+.filter-btn{padding:6px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;}
+.filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.08);}
+.report-list{display:flex;flex-direction:column;gap:10px;}
+.report-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:flex-start;gap:14px;transition:border-color .2s;cursor:pointer;}
+.report-card:hover{border-color:var(--muted);}
+.report-card.aman{border-left:3px solid var(--green);}
+.report-card.tidak{border-left:3px solid var(--danger);}
+.report-photo{width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;}
+.report-photo-placeholder{width:56px;height:56px;border-radius:8px;background:var(--card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.report-info{flex:1;min-width:0;}
+.report-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;}
+.report-name{font-weight:600;font-size:15px;}
+.report-badge{padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;}
+.badge-aman{background:rgba(0,255,136,.15);color:var(--green);border:1px solid rgba(0,255,136,.3);}
+.badge-tidak{background:rgba(255,68,68,.15);color:var(--danger);border:1px solid rgba(255,68,68,.3);}
+.report-meta{font-size:12px;color:var(--muted2);display:flex;gap:10px;flex-wrap:wrap;}
+.report-notes{font-size:12px;color:var(--muted2);margin-top:4px;font-style:italic;}
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted2);}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.5;}
+.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;}
+.qr-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center;}
+.qr-card-title{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;margin-bottom:4px;}
+.qr-card-sub{font-size:12px;color:var(--muted2);margin-bottom:14px;}
+.qr-code-wrap{background:#fff;border-radius:10px;padding:14px;display:inline-flex;margin-bottom:14px;}
+.qr-code-id{font-family:monospace;font-size:10px;color:var(--muted2);word-break:break-all;padding:6px;background:var(--card2);border-radius:6px;margin-bottom:10px;}
+.qr-print-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;transition:all .2s;width:100%;}
+.qr-print-btn:hover{border-color:var(--accent);color:var(--accent);}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:18px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;}
+.modal-header{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;}
+.modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}
+.modal-body{padding:20px;}
+.modal-photo{width:100%;border-radius:10px;margin-bottom:16px;}
+.modal-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px;}
+.modal-row:last-child{border:none;}
+.modal-key{color:var(--muted2);}
+.modal-val{font-weight:500;}
+.refresh-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;}
+.refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <img src="asian-agri-logo.png" style="width:50px;height:50px;object-fit:contain;">
+    <div>
+      <div class="logo-title">KEBUN GUNUNG SAHILAN<span style="color:#fff;font-weight:200"></span> <span style="font-size:10px;font-weight:400;color:var(--muted2)">Admin</span></div>
+      <div class="logo-sub">Security Dashboard</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div class="clock-top" id="clock-top">00:00:00</div>
+  </div>
+</div>
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('overview',this)">📊 Overview</button>
+  <button class="nav-tab" onclick="switchTab('map',this)">🗺️ Live Map</button>
+  <button class="nav-tab" onclick="switchTab('reports',this)">📋 Laporan <span class="tab-badge" id="report-count-badge">0</span></button>
+  <button class="nav-tab" onclick="switchTab('qrcodes',this)">🔲 QR Codes</button>
+</div>
+<div class="main">
+  <!-- OVERVIEW -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="stat-grid">
+      <div class="stat-card blue"><div class="stat-label">Total Laporan</div><div class="stat-value" id="stat-total">0</div><div class="stat-sub">Semua waktu</div></div>
+      <div class="stat-card green"><div class="stat-label">Kondisi Aman</div><div class="stat-value" id="stat-aman">0</div><div class="stat-sub">Laporan</div></div>
+      <div class="stat-card red"><div class="stat-label">Tidak Aman</div><div class="stat-value" id="stat-tidak">0</div><div class="stat-sub">⚠️ Perlu tindakan</div></div>
+      <div class="stat-card warn"><div class="stat-label">Petugas Aktif</div><div class="stat-value" id="stat-petugas">0</div><div class="stat-sub">Security on duty</div></div>
+    </div>
+    <div class="map-container">
+      <div class="map-header">
+        <div class="map-title">🗺️ Posisi Terakhir Tim</div>
+        <button class="refresh-btn" onclick="loadData()">🔄 Refresh</button>
+      </div>
+      <div id="live-map"></div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Aman</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>Tidak Aman</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Blok Patroli</div>
+      </div>
+    </div>
+    <div class="reports-header"><div class="reports-title">📋 Laporan Terbaru</div></div>
+    <div class="report-list" id="latest-list"><div class="empty-state"><div class="empty-icon">📭</div><p>Belum ada laporan</p></div></div>
+  </div>
+  <!-- MAP -->
+  <div class="tab-content" id="tab-map">
+    <div class="map-container">
+      <div class="map-header">
+        <div class="map-title">🗺️ Live Tracking Patroli</div>
+        <div style="display:flex;gap:8px"><button class="refresh-btn" onclick="loadData()">🔄 Refresh</button><div class="live-badge"><div class="live-dot"></div>LIVE</div></div>
+      </div>
+      <div id="live-map-full"></div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Aman</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>Tidak Aman</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;"><div class="reports-title" style="margin-bottom:12px;">📍 Riwayat Posisi</div><div class="report-list" id="map-track-list"></div></div>
+  </div>
+  <!-- REPORTS -->
+  <div class="tab-content" id="tab-reports">
+    <div class="reports-header"><div class="reports-title">📋 Semua Laporan</div><button class="refresh-btn" onclick="loadData()">🔄 Refresh</button></div>
+    <div class="filter-group" style="margin-bottom:16px;">
+      <button class="filter-btn active" onclick="filterReports('all',this)">Semua</button>
+      <button class="filter-btn" onclick="filterReports('AMAN',this)">✅ Aman</button>
+      <button class="filter-btn" onclick="filterReports('TIDAK AMAN',this)">🚨 Tidak Aman</button>
+    </div>
+    <div class="report-list" id="all-reports-list"><div class="empty-state"><div class="empty-icon">📭</div><p>Belum ada laporan</p></div></div>
+  </div>
+  <!-- QR -->
+  <div class="tab-content" id="tab-qrcodes">
+    <div style="margin-bottom:16px;"><div class="reports-title">🔲 QR Code Blok Patroli</div><p style="font-size:13px;color:var(--muted2);margin-top:4px;">Print & tempel di tiap blok. Security wajib scan QR yang sesuai lokasinya.</p></div>
+    <div class="qr-grid" id="qr-grid"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header"><div class="modal-title">Detail Laporan</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9gEPXcWDPX-9XylwQlk9Hah0vnQeu6pp4L6inTaklMdgkUj3_Xd2boxVUAQ-Y4YUt2Q/exec';
+const BLOK_CONFIG=[
+  {id:'C00A',label:'C00A',qr:'PATROL-C00A-A7X2K9',lat:-0.208952,lng:101.348442},
+  {id:'C00B',label:'C00B',qr:'PATROL-C00B-B3M8Q1',lat:-0.205478,lng:101.349233},
+  {id:'C00C',label:'C00C',qr:'PATROL-C00C-C5N4R7',lat:-0.200260,lng:101.344218},
+  {id:'C00D',label:'C00D',qr:'PATROL-C00D-D9P2W6',lat:-0.205610,lng:101.337479},
+  {id:'C00E',label:'C00E',qr:'PATROL-C00E-E1T6Y3',lat:-0.201715,lng:101.333941},
+  {id:'D00J',label:'D00J',qr:'PATROL-D00J-AFD4',lat:-0.111880,lng:101.308066},
+];
+let allReports=[];let filterStatus='all';let maps={};let secMarkers={};let qrGenerated=false;
+
+setInterval(()=>{document.getElementById('clock-top').textContent=new Date().toLocaleTimeString('id-ID');},1000);
+
+function switchTab(tab,el){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  el.classList.add('active');
+  if(tab==='map'&&!maps.full)initMap('live-map-full','full');
+  if(tab==='qrcodes'&&!qrGenerated)generateQRCodes();
+}
+
+function initMap(elId,key){
+  const center=[-6.2088,106.8456];
+  maps[key]=L.map(elId,{zoomControl:true,scrollWheelZoom:key==='full'}).setView(center,16);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'©CartoDB',maxZoom:19}).addTo(maps[key]);
+  BLOK_CONFIG.forEach(blok=>{
+    const icon=L.divIcon({html:`<div style="background:#00D4FF;color:#000;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;font-family:Rajdhani,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,212,255,.5);">${blok.id}</div>`,className:'',iconAnchor:[20,10]});
+    L.marker([blok.lat,blok.lng],{icon}).addTo(maps[key]).bindPopup(`<b>${blok.label}</b>`);
+  });
+  updateMapMarkers(key);
+}
+
+function updateMapMarkers(key){
+  const map=maps[key];if(!map)return;
+  if(secMarkers[key])secMarkers[key].forEach(m=>map.removeLayer(m));
+  secMarkers[key]=[];
+  const latest={};
+  allReports.forEach(r=>{if(r.gpsLat&&r.gpsLng&&!latest[r.nama])latest[r.nama]=r;});
+  Object.values(latest).forEach(r=>{
+    const c=r.status==='AMAN'?'#00FF88':'#FF4444';
+    const icon=L.divIcon({html:`<div style="position:relative"><div style="width:14px;height:14px;border-radius:50%;background:${c};border:2px solid #fff;box-shadow:0 0 12px ${c};"></div><div style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:${c};border-radius:4px;padding:2px 6px;font-size:10px;white-space:nowrap;">${r.nama}</div></div>`,className:'',iconAnchor:[7,7]});
+    const m=L.marker([parseFloat(r.gpsLat),parseFloat(r.gpsLng)],{icon}).addTo(map);
+    m.bindPopup(`<b>${r.nama}</b><br>${r.blok}<br>Status: <b>${r.status}</b><br>${r.waktu}`);
+    secMarkers[key].push(m);
+  });
+}
+
+function loadData(){
+  document.getElementById('report-count-badge').textContent = '...';
+  fetch(APPS_SCRIPT_URL)
+    .then(r => r.json())
+    .then(data => {
+      if (!Array.isArray(data) || data.length === 0) {
+        allReports = [];
+      } else {
+        // Map kolom dari Google Sheets ke format dashboard
+        allReports = data.map((row, i) => ({
+          id: row['ID'] || Date.now() - i,
+          nama: row['Nama'] || '',
+          shift: row['Shift'] || '',
+          blok: row['Pos'] || row['Blok'] || '',
+          waktu: row['Waktu Patroli'] || row['Timestamp'] || '',
+          gpsLat: row['GPS Lat'] || '',
+          gpsLng: row['GPS Lng'] || '',
+          status: row['Status'] || '',
+          catatan: row['Catatan'] || '',
+          foto: row['Link Foto'] || '',
+        }));
+      }
+      updateStats(); renderLatest(); renderAllReports(); renderMapTrack();
+      updateMapMarkers('mini'); updateMapMarkers('full');
+      document.getElementById('report-count-badge').textContent = allReports.length;
+    })
+    .catch(err => {
+      console.error('Gagal fetch data:', err);
+      document.getElementById('report-count-badge').textContent = '!';
+    });
+}
+
+function updateStats(){
+  document.getElementById('stat-total').textContent=allReports.length;
+  document.getElementById('stat-aman').textContent=allReports.filter(r=>r.status==='AMAN').length;
+  document.getElementById('stat-tidak').textContent=allReports.filter(r=>r.status==='TIDAK AMAN').length;
+  document.getElementById('stat-petugas').textContent=new Set(allReports.map(r=>r.nama)).size;
+}
+
+function cardHTML(r){
+  const a=r.status==='AMAN';
+  const ph=r.foto?`<img class="report-photo" src="${r.foto}" alt="foto">`:`<div class="report-photo-placeholder">📸</div>`;
+  return`<div class="report-card ${a?'aman':'tidak'}" onclick="openModal(${r.id})">${ph}<div class="report-info"><div class="report-top"><span class="report-name">${r.nama}</span><span class="report-badge ${a?'badge-aman':'badge-tidak'}">${r.status}</span></div><div class="report-meta"><span>📍 ${r.blok}</span><span>⏰ ${(r.shift||'').split(' ')[0]}</span><span>🕐 ${r.waktu}</span>${r.gpsLat?`<span>📡 ${r.gpsLat},${r.gpsLng}</span>`:''}</div>${r.catatan?`<div class="report-notes">💬 "${r.catatan}"</div>`:''}</div></div>`;
+}
+
+function renderLatest(){const el=document.getElementById('latest-list');const items=allReports.slice(0,5);el.innerHTML=items.length?items.map(cardHTML).join(''):`<div class="empty-state"><div class="empty-icon">📭</div><p>Belum ada laporan</p></div>`;}
+function renderAllReports(){const el=document.getElementById('all-reports-list');let items=filterStatus==='all'?allReports:allReports.filter(r=>r.status===filterStatus);el.innerHTML=items.length?items.map(cardHTML).join(''):`<div class="empty-state"><div class="empty-icon">🔍</div><p>Tidak ada laporan</p></div>`;}
+function renderMapTrack(){const el=document.getElementById('map-track-list');el.innerHTML=allReports.slice(0,10).map(r=>{const a=r.status==='AMAN';return`<div class="report-card ${a?'aman':'tidak'}" onclick="openModal(${r.id})"><div class="report-photo-placeholder">${a?'✅':'🚨'}</div><div class="report-info"><div class="report-top"><span class="report-name">${r.nama} — ${r.blok}</span><span class="report-badge ${a?'badge-aman':'badge-tidak'}">${r.status}</span></div><div class="report-meta"><span>🕐 ${r.waktu}</span>${r.gpsLat?`<span>📡 ${r.gpsLat}, ${r.gpsLng}</span>`:'<span style="color:var(--muted)">GPS tidak tersedia</span>'}</div></div></div>`;}).join('')||`<div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada data</p></div>`;}
+
+function filterReports(val,el){filterStatus=val;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderAllReports();}
+
+function openModal(id){
+  const r=allReports.find(x=>x.id===id);if(!r)return;
+  const a=r.status==='AMAN';
+  document.getElementById('modal-body').innerHTML=`
+    ${r.foto?`<img class="modal-photo" src="${r.foto}" alt="foto">`:'<div style="background:var(--card2);border-radius:10px;padding:40px;text-align:center;margin-bottom:16px;color:var(--muted2);">📸 Tidak ada foto</div>'}
+    <div class="modal-row"><span class="modal-key">👤 Nama</span><span class="modal-val">${r.nama}</span></div>
+    <div class="modal-row"><span class="modal-key">📍 Blok</span><span class="modal-val">${r.blok}</span></div>
+    <div class="modal-row"><span class="modal-key">⏰ Shift</span><span class="modal-val">${r.shift}</span></div>
+    <div class="modal-row"><span class="modal-key">🕐 Waktu</span><span class="modal-val">${r.waktu}</span></div>
+    <div class="modal-row"><span class="modal-key">📡 GPS</span><span class="modal-val">${r.gpsLat?r.gpsLat+', '+r.gpsLng:'Tidak tersedia'}</span></div>
+    <div class="modal-row"><span class="modal-key">🚦 Status</span><span class="modal-val" style="color:${a?'var(--green)':'var(--danger)'};font-weight:700">${r.status}</span></div>
+    ${r.catatan?`<div class="modal-row"><span class="modal-key">📝 Catatan</span><span class="modal-val">${r.catatan}</span></div>`:''}
+    ${r.gpsLat?`<a href="https://maps.google.com/?q=${r.gpsLat},${r.gpsLng}" target="_blank" style="display:block;margin-top:14px;padding:10px;background:var(--card2);border-radius:8px;color:var(--accent);text-align:center;font-size:13px;text-decoration:none;">🗺️ Buka di Google Maps</a>`:''}
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.remove('open');}
+
+function generateQRCodes(){
+  qrGenerated=true;
+  const grid=document.getElementById('qr-grid');grid.innerHTML='';
+  BLOK_CONFIG.forEach(blok=>{
+    const card=document.createElement('div');card.className='qr-card';
+    const safeId=blok.id.replace('-','');
+    card.innerHTML=`<div class="qr-card-title">${blok.id}</div><div class="qr-card-sub">${blok.label}</div><div class="qr-code-wrap" id="qr-${safeId}"></div><div class="qr-code-id">${blok.qr}</div><button class="qr-print-btn" onclick="printQR('${blok.id}','${blok.label}','${blok.qr}')">🖨️ Print QR</button>`;
+    grid.appendChild(card);
+    setTimeout(()=>{new QRCode(document.getElementById(`qr-${safeId}`),{text:blok.qr,width:140,height:140,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});},100);
+  });
+}
+
+function printQR(id,label,qrData){
+  const win=window.open('','_blank');
+  win.document.write(`<html><head><title>QR ${id}</title><style>body{font-family:sans-serif;text-align:center;padding:40px;}h2{margin-bottom:4px;}p{color:#666;font-size:14px;margin-bottom:20px;}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script></head><body><h2>${id}</h2><p>${label}</p><div id="q"></div><p style="margin-top:16px;font-size:11px;font-family:monospace;">${qrData}</p><p style="font-size:12px;color:#999;">Tempel di lokasi pos patroli</p><script>new QRCode(document.getElementById('q'),{text:'${qrData}',width:260,height:260,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H});setTimeout(()=>window.print(),700);<\/script></body></html>`);
+}
+
+setInterval(loadData,30000);
+window.addEventListener('load',()=>{
+  loadData();
+  setTimeout(()=>initMap('live-map','mini'),300);
+});
+</script>
+</body>
+</html>
