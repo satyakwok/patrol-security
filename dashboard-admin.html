@@ -267,6 +267,13 @@ function loadData(){
     });
 }
 
+function driveImgUrl(url) {
+  if (!url || url.startsWith('Gagal') || url === '') return '';
+  const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w400';
+  return url;
+}
+
 function updateStats(){
   document.getElementById('stat-total').textContent=allReports.length;
   document.getElementById('stat-aman').textContent=allReports.filter(r=>r.status==='AMAN').length;
@@ -276,7 +283,8 @@ function updateStats(){
 
 function cardHTML(r){
   const a=r.status==='AMAN';
-  const ph=r.foto?`<img class="report-photo" src="${r.foto}" alt="foto">`:`<div class="report-photo-placeholder">📸</div>`;
+  const imgUrl = driveImgUrl(r.foto);
+  const ph=imgUrl?`<img class="report-photo" src="${imgUrl}" alt="foto" onerror="this.parentElement.innerHTML='<div class=\\'report-photo-placeholder\\'>📸</div>'">`:`<div class="report-photo-placeholder">📸</div>`;
   return`<div class="report-card ${a?'aman':'tidak'}" onclick="openModal(${r.id})">${ph}<div class="report-info"><div class="report-top"><span class="report-name">${r.nama}</span><span class="report-badge ${a?'badge-aman':'badge-tidak'}">${r.status}</span></div><div class="report-meta"><span>📍 ${r.blok}</span><span>⏰ ${(r.shift||'').split(' ')[0]}</span><span>🕐 ${r.waktu}</span>${r.gpsLat?`<span>📡 ${r.gpsLat},${r.gpsLng}</span>`:''}</div>${r.catatan?`<div class="report-notes">💬 "${r.catatan}"</div>`:''}</div></div>`;
 }
 
@@ -290,7 +298,7 @@ function openModal(id){
   const r=allReports.find(x=>x.id===id);if(!r)return;
   const a=r.status==='AMAN';
   document.getElementById('modal-body').innerHTML=`
-    ${r.foto?`<img class="modal-photo" src="${r.foto}" alt="foto">`:'<div style="background:var(--card2);border-radius:10px;padding:40px;text-align:center;margin-bottom:16px;color:var(--muted2);">📸 Tidak ada foto</div>'}
+    ${driveImgUrl(r.foto)?`<img class="modal-photo" src="${driveImgUrl(r.foto)}" alt="foto" onerror="this.style.display='none'">`:'<div style="background:var(--card2);border-radius:10px;padding:40px;text-align:center;margin-bottom:16px;color:var(--muted2);">📸 Tidak ada foto</div>'}
     <div class="modal-row"><span class="modal-key">👤 Nama</span><span class="modal-val">${r.nama}</span></div>
     <div class="modal-row"><span class="modal-key">📍 Blok</span><span class="modal-val">${r.blok}</span></div>
     <div class="modal-row"><span class="modal-key">⏰ Shift</span><span class="modal-val">${r.shift}</span></div>
