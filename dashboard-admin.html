@@ -100,6 +100,29 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .modal-val{font-weight:500;}
 .refresh-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;}
 .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+/* ===== LIVE TRACKER STYLES ===== */
+.tracker-section{margin-bottom:20px;}
+.tracker-map-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:16px;}
+#tracker-map{height:400px;background:#0A1520;}
+.durasi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;}
+.durasi-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;position:relative;overflow:hidden;}
+.durasi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.durasi-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.durasi-nama{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;}
+.durasi-shift-badge{font-size:11px;color:var(--muted2);background:var(--card2);padding:3px 9px;border-radius:20px;border:1px solid var(--border);}
+.durasi-stats-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.durasi-stat-box{background:var(--card2);border-radius:8px;padding:10px;text-align:center;}
+.durasi-stat-num{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;line-height:1;}
+.durasi-stat-lbl{font-size:10px;color:var(--muted2);margin-top:3px;letter-spacing:.5px;text-transform:uppercase;}
+.durasi-info-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted2);margin-bottom:8px;}
+.durasi-bar-bg{background:var(--card2);border-radius:999px;height:5px;overflow:hidden;}
+.durasi-bar-fill{height:5px;border-radius:999px;transition:width .8s ease;}
+.track-point-list{display:flex;flex-direction:column;gap:8px;}
+.track-point-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px;display:flex;align-items:center;gap:12px;}
+.track-point-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.track-point-info{flex:1;min-width:0;}
+.track-point-nama{font-weight:600;font-size:14px;}
+.track-point-meta{font-size:12px;color:var(--muted2);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;}
 </style>
 </head>
 <body>
@@ -119,6 +142,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <div class="nav-tabs">
   <button class="nav-tab active" onclick="switchTab('overview',this)">📊 Overview</button>
   <button class="nav-tab" onclick="switchTab('map',this)">🗺️ Live Map</button>
+  <button class="nav-tab" onclick="switchTab('tracker',this)">📡 Live Tracker</button>
   <button class="nav-tab" onclick="switchTab('reports',this)">📋 Laporan <span class="tab-badge" id="report-count-badge">0</span></button>
   <button class="nav-tab" onclick="switchTab('qrcodes',this)">🔲 QR Codes</button>
 </div>
@@ -161,6 +185,45 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     </div>
     <div style="margin-top:16px;"><div class="reports-title" style="margin-bottom:12px;">📍 Riwayat Posisi</div><div class="report-list" id="map-track-list"></div></div>
   </div>
+  <!-- LIVE TRACKER -->
+  <div class="tab-content" id="tab-tracker">
+    <!-- Peta Tracker -->
+    <div class="tracker-map-wrap">
+      <div class="map-header">
+        <div class="map-title">📡 Live Tracker GPS Patroli</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="refresh-btn" onclick="loadTracking()">🔄 Refresh</button>
+          <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+        </div>
+      </div>
+      <div id="tracker-map"></div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Blok Patroli</div>
+        <div class="legend-item"><div style="width:28px;height:0;border-top:3px dashed #aaa;margin-right:6px;"></div>Jalur Tracking</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Posisi Terakhir</div>
+      </div>
+    </div>
+
+    <!-- Durasi per Petugas -->
+    <div class="tracker-section">
+      <div class="reports-header" style="margin-bottom:12px;">
+        <div class="reports-title">⏱️ Durasi & Monitoring Petugas</div>
+        <span style="font-size:12px;color:var(--muted2);">Data 2 jam terakhir</span>
+      </div>
+      <div class="durasi-grid" id="tracker-durasi">
+        <div class="empty-state"><div class="empty-icon">📡</div><p>Belum ada data tracking</p><p style="font-size:12px;margin-top:6px;">Pastikan Apps Script sudah di-deploy dengan kode terbaru</p></div>
+      </div>
+    </div>
+
+    <!-- List titik tracking -->
+    <div class="tracker-section">
+      <div class="reports-title" style="margin-bottom:12px;">📍 Titik Tracking Terbaru</div>
+      <div class="track-point-list" id="tracker-list">
+        <div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada titik tracking</p></div>
+      </div>
+    </div>
+  </div>
+
   <!-- REPORTS -->
   <div class="tab-content" id="tab-reports">
     <div class="reports-header"><div class="reports-title">📋 Semua Laporan</div><button class="refresh-btn" onclick="loadData()">🔄 Refresh</button></div>
@@ -197,6 +260,17 @@ const BLOK_CONFIG=[
   {id:'D00J',label:'D00J',qr:'PATROL-D00J-AFD4',lat:-0.111880,lng:101.308066},
 ];
 let allReports=[];let filterStatus='all';let maps={};let secMarkers={};let qrGenerated=false;
+// === TRACKER VARS ===
+let trackingData=[];
+let trackerMap=null;
+let trackerPolylines=[];
+let trackerMarkers=[];
+const TRACK_COLORS=['#00D4FF','#FFB800','#00FF88','#FF6B6B','#B44DFF','#FF8C00','#39FF14','#FF69B4','#00BFFF'];
+function getColor(nama){
+  const names=[...new Set(trackingData.map(r=>r['Nama']).filter(Boolean))].sort();
+  const i=names.indexOf(nama);
+  return TRACK_COLORS[i>=0?i%TRACK_COLORS.length:0];
+}
 
 setInterval(()=>{document.getElementById('clock-top').textContent=new Date().toLocaleTimeString('id-ID');},1000);
 
@@ -206,6 +280,7 @@ function switchTab(tab,el){
   document.getElementById('tab-'+tab).classList.add('active');
   el.classList.add('active');
   if(tab==='map'&&!maps.full)initMap('live-map-full','full');
+  if(tab==='tracker'){initTrackerMap();loadTracking();}
   if(tab==='qrcodes'&&!qrGenerated)generateQRCodes();
 }
 
@@ -321,6 +396,192 @@ function printQR(id,label,qrData){
   const win=window.open('','_blank');
   win.document.write(`<html><head><title>QR ${id}</title><style>body{font-family:sans-serif;text-align:center;padding:40px;}h2{margin-bottom:4px;}p{color:#666;font-size:14px;margin-bottom:20px;}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script></head><body><h2>${id}</h2><p>${label}</p><div id="q"></div><p style="margin-top:16px;font-size:11px;font-family:monospace;">${qrData}</p><p style="font-size:12px;color:#999;">Tempel di lokasi pos patroli</p><script>new QRCode(document.getElementById('q'),{text:'${qrData}',width:260,height:260,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H});setTimeout(()=>window.print(),700);<\/script></body></html>`);
 }
+
+// =============================================
+// LIVE TRACKER
+// =============================================
+
+function initTrackerMap() {
+  if (trackerMap) { trackerMap.invalidateSize(); return; }
+  // Pakai koordinat tengah dari BLOK_CONFIG
+  const lats = BLOK_CONFIG.map(b=>b.lat), lngs = BLOK_CONFIG.map(b=>b.lng);
+  const centerLat = (Math.min(...lats)+Math.max(...lats))/2;
+  const centerLng = (Math.min(...lngs)+Math.max(...lngs))/2;
+  trackerMap = L.map('tracker-map',{zoomControl:true,scrollWheelZoom:true}).setView([centerLat,centerLng],14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'©CartoDB',maxZoom:19}).addTo(trackerMap);
+  // Marker blok patroli
+  BLOK_CONFIG.forEach(b=>{
+    const icon=L.divIcon({html:`<div style="background:var(--accent,#00D4FF);color:#000;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;font-family:Rajdhani,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,212,255,.5);">${b.id}</div>`,className:'',iconAnchor:[22,10]});
+    L.marker([b.lat,b.lng],{icon}).addTo(trackerMap).bindPopup(`<b>${b.label}</b><br><small>Blok Patroli</small>`);
+  });
+}
+
+function loadTracking() {
+  fetch(APPS_SCRIPT_URL+'?action=tracking')
+    .then(r=>r.json())
+    .then(data=>{
+      if(!Array.isArray(data)||data.length===0){
+        trackingData=[];
+        document.getElementById('tracker-durasi').innerHTML='<div class="empty-state"><div class="empty-icon">📡</div><p>Belum ada data tracking</p></div>';
+        document.getElementById('tracker-list').innerHTML='<div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada titik</p></div>';
+        return;
+      }
+      trackingData=data;
+      renderTrackerMap();
+      renderDurasi();
+      renderTrackList();
+    })
+    .catch(()=>{
+      document.getElementById('tracker-durasi').innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>Gagal memuat data tracking</p><p style="font-size:12px;margin-top:4px;color:var(--danger)">Periksa koneksi / deploy Apps Script terbaru</p></div>';
+    });
+}
+
+function renderTrackerMap() {
+  if(!trackerMap) return;
+  // Hapus layer lama
+  trackerPolylines.forEach(l=>trackerMap.removeLayer(l));
+  trackerMarkers.forEach(m=>trackerMap.removeLayer(m));
+  trackerPolylines=[]; trackerMarkers=[];
+
+  // Kelompokkan titik per nama, urutkan berdasarkan timestampMs
+  const byNama={};
+  trackingData.forEach(r=>{
+    const lat=parseFloat(r['GPS Lat']), lng=parseFloat(r['GPS Lng']);
+    if(!lat||!lng||isNaN(lat)||isNaN(lng)) return;
+    if(!byNama[r['Nama']]) byNama[r['Nama']]=[];
+    byNama[r['Nama']].push({lat,lng,ts:Number(r['TimestampMs'])||0,blok:r['Blok']||r['Pos']||'',waktu:r['Timestamp']||''});
+  });
+
+  const allBounds=[];
+  Object.entries(byNama).forEach(([nama,pts])=>{
+    const color=getColor(nama);
+    pts.sort((a,b)=>a.ts-b.ts);
+    const latlngs=pts.map(p=>[p.lat,p.lng]);
+    allBounds.push(...latlngs);
+
+    // Garis jalur
+    const poly=L.polyline(latlngs,{color,weight:3,opacity:0.8,dashArray:'8 6'}).addTo(trackerMap);
+    trackerPolylines.push(poly);
+
+    // Titik-titik kecil sepanjang jalur
+    pts.slice(0,-1).forEach(p=>{
+      const dot=L.circleMarker([p.lat,p.lng],{radius:3,color,fillColor:color,fillOpacity:0.5,weight:1}).addTo(trackerMap);
+      trackerMarkers.push(dot);
+    });
+
+    // Titik terakhir (lebih besar + label nama)
+    const last=pts[pts.length-1];
+    const endIcon=L.divIcon({
+      html:`<div style="position:relative">
+        <div style="width:16px;height:16px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 0 14px ${color};"></div>
+        <div style="position:absolute;top:-24px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.9);color:${color};border-radius:5px;padding:2px 8px;font-size:11px;white-space:nowrap;font-weight:700;border:1px solid ${color}44;">${nama}</div>
+      </div>`,
+      className:'', iconAnchor:[8,8]
+    });
+    const endM=L.marker([last.lat,last.lng],{icon:endIcon}).addTo(trackerMap)
+      .bindPopup(`<b style="color:${color}">${nama}</b><br>Blok: <b>${last.blok||'-'}</b><br>⏱ ${last.waktu}<br><a href="https://maps.google.com/?q=${last.lat},${last.lng}" target="_blank" style="color:#00D4FF;">Buka di Maps →</a>`);
+    trackerMarkers.push(endM);
+  });
+
+  if(allBounds.length>0) trackerMap.fitBounds(allBounds,{padding:[40,40],maxZoom:17});
+}
+
+function renderDurasi() {
+  const el=document.getElementById('tracker-durasi');
+  if(!trackingData.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">📡</div><p>Belum ada data</p></div>'; return; }
+
+  // Kelompokkan per nama
+  const byNama={};
+  trackingData.forEach(r=>{
+    if(!r['Nama']) return;
+    if(!byNama[r['Nama']]) byNama[r['Nama']]={pts:[],shift:r['Shift']||''};
+    byNama[r['Nama']].pts.push({
+      ts: Number(r['TimestampMs'])||0,
+      blok: r['Blok']||r['Pos']||'-',
+      waktu: r['Timestamp']||''
+    });
+  });
+
+  // Hitung max menit untuk normalisasi progress bar
+  const allMenit=Object.values(byNama).map(v=>{
+    const s=v.pts.sort((a,b)=>a.ts-b.ts);
+    return s.length<2?0:Math.round((s[s.length-1].ts-s[0].ts)/60000);
+  });
+  const maxMenit=Math.max(...allMenit,1);
+
+  let html='';
+  Object.entries(byNama).forEach(([nama,val])=>{
+    const pts=val.pts.sort((a,b)=>a.ts-b.ts);
+    const color=getColor(nama);
+    const totalMs=pts.length<2?0:(pts[pts.length-1].ts-pts[0].ts);
+    const totalMenit=Math.round(totalMs/60000);
+    const jam=Math.floor(totalMenit/60), menit=totalMenit%60;
+    const durasiStr=jam>0?`${jam}j ${menit}m`:`${totalMenit} mnt`;
+    const mulai=pts[0].ts?new Date(pts[0].ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'-';
+    const terakhir=pts[pts.length-1].ts?new Date(pts[pts.length-1].ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'-';
+    const blokAktif=pts[pts.length-1].blok;
+    const pct=Math.min(100,Math.round((totalMenit/maxMenit)*100));
+
+    html+=`<div class="durasi-card" style="border-top-color:${color}">
+      <div class="durasi-head">
+        <div class="durasi-nama" style="color:${color}">👤 ${nama}</div>
+        <div class="durasi-shift-badge">${val.shift||'—'}</div>
+      </div>
+      <div class="durasi-stats-row">
+        <div class="durasi-stat-box">
+          <div class="durasi-stat-num" style="color:${color}">${durasiStr}</div>
+          <div class="durasi-stat-lbl">Total Durasi</div>
+        </div>
+        <div class="durasi-stat-box">
+          <div class="durasi-stat-num" style="color:${color}">${pts.length}</div>
+          <div class="durasi-stat-lbl">Titik Tercatat</div>
+        </div>
+        <div class="durasi-stat-box">
+          <div class="durasi-stat-num" style="color:${color};font-size:15px">${blokAktif}</div>
+          <div class="durasi-stat-lbl">Blok Aktif</div>
+        </div>
+        <div class="durasi-stat-box">
+          <div class="durasi-stat-num" style="color:${color};font-size:15px">${terakhir}</div>
+          <div class="durasi-stat-lbl">Update Terakhir</div>
+        </div>
+      </div>
+      <div class="durasi-info-row">
+        <span>🕐 Mulai: ${mulai}</span>
+        <span>📡 ${pts.length} titik GPS</span>
+      </div>
+      <div class="durasi-bar-bg">
+        <div class="durasi-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${color},${color}66);"></div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+function renderTrackList() {
+  const el=document.getElementById('tracker-list');
+  if(!trackingData.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada data</p></div>'; return; }
+  el.innerHTML=trackingData.slice(0,30).map(r=>{
+    const color=getColor(r['Nama']||'');
+    const akurasi=r['Akurasi']||r['Akurasi GPS (m)']||'?';
+    return `<div class="track-point-item">
+      <div class="track-point-dot" style="background:${color};box-shadow:0 0 7px ${color};"></div>
+      <div class="track-point-info">
+        <div class="track-point-nama" style="color:${color}">${r['Nama']||'-'}</div>
+        <div class="track-point-meta">
+          <span>🔲 ${r['Blok']||r['Pos']||'-'}</span>
+          <span>🕐 ${r['Timestamp']||'-'}</span>
+          <span>🎯 ±${akurasi}m</span>
+          <span>📡 ${r['GPS Lat']||'-'}, ${r['GPS Lng']||'-'}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Auto refresh tracker tiap 30 detik (hanya saat tab aktif)
+setInterval(()=>{
+  if(document.getElementById('tab-tracker').classList.contains('active')) loadTracking();
+},30000);
 
 setInterval(loadData,30000);
 window.addEventListener('load',()=>{
