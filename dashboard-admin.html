@@ -301,13 +301,21 @@ function updateMapMarkers(key){
   secMarkers[key]=[];
   const latest={};
   allReports.forEach(r=>{if(r.gpsLat&&r.gpsLng&&!latest[r.nama])latest[r.nama]=r;});
+  const positions=[];
   Object.values(latest).forEach(r=>{
     const c=r.status==='AMAN'?'#00FF88':'#FF4444';
     const icon=L.divIcon({html:`<div style="position:relative"><div style="width:14px;height:14px;border-radius:50%;background:${c};border:2px solid #fff;box-shadow:0 0 12px ${c};"></div><div style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:${c};border-radius:4px;padding:2px 6px;font-size:10px;white-space:nowrap;">${r.nama}</div></div>`,className:'',iconAnchor:[7,7]});
     const m=L.marker([parseFloat(r.gpsLat),parseFloat(r.gpsLng)],{icon}).addTo(map);
     m.bindPopup(`<b>${r.nama}</b><br>${r.blok}<br>Status: <b>${r.status}</b><br>${r.waktu}`);
     secMarkers[key].push(m);
+    positions.push([parseFloat(r.gpsLat),parseFloat(r.gpsLng)]);
   });
+  // Auto fit ke posisi semua petugas
+  if(positions.length===1){
+    map.setView(positions[0],17);
+  } else if(positions.length>1){
+    map.fitBounds(positions,{padding:[50,50],maxZoom:17,animate:true});
+  }
 }
 
 function loadData(){
