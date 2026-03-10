@@ -268,7 +268,10 @@ function loadData(){
 }
 
 function driveImgUrl(url) {
-  if (!url || url.startsWith('Gagal') || url === '') return '';
+  if (!url || url === '') return '';
+  // Format uc?export=view → langsung pakai
+  if (url.includes('uc?export=view')) return url;
+  // Format /file/d/ID/view → konvert ke thumbnail
   const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
   if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w400';
   return url;
@@ -284,7 +287,7 @@ function updateStats(){
 function cardHTML(r){
   const a=r.status==='AMAN';
   const imgUrl = driveImgUrl(r.foto);
-  const ph=imgUrl?`<img class="report-photo" src="${imgUrl}" alt="foto" onerror="this.parentElement.innerHTML='<div class=\\'report-photo-placeholder\\'>📸</div>'">`:`<div class="report-photo-placeholder">📸</div>`;
+  const ph=imgUrl?`<img class="report-photo" src="${imgUrl}" alt="foto" onerror="this.outerHTML='<div class=\\'report-photo-placeholder\\'>📸</div>'">`:`<div class="report-photo-placeholder">📸</div>`;
   return`<div class="report-card ${a?'aman':'tidak'}" onclick="openModal(${r.id})">${ph}<div class="report-info"><div class="report-top"><span class="report-name">${r.nama}</span><span class="report-badge ${a?'badge-aman':'badge-tidak'}">${r.status}</span></div><div class="report-meta"><span>📍 ${r.blok}</span><span>⏰ ${(r.shift||'').split(' ')[0]}</span><span>🕐 ${r.waktu}</span>${r.gpsLat?`<span>📡 ${r.gpsLat},${r.gpsLng}</span>`:''}</div>${r.catatan?`<div class="report-notes">💬 "${r.catatan}"</div>`:''}</div></div>`;
 }
 
