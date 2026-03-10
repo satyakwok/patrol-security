@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#004b31">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Patroli">
 <title>📱 Patroli Security</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <style>
@@ -16,6 +21,13 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+/* ===== OFFLINE INDICATOR ===== */
+#offline-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#d32f2f;color:#fff;text-align:center;padding:8px 16px;font-size:13px;font-weight:600;align-items:center;justify-content:center;gap:8px;}
+#offline-bar.show{display:flex;}
+#sync-toast{display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;background:#004b31;color:#fff;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.25);align-items:center;gap:8px;white-space:nowrap;}
+#sync-toast.show{display:flex;}
+#queue-badge{display:none;position:fixed;top:16px;right:16px;z-index:9998;background:#f57c00;color:#fff;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+#queue-badge.show{display:block;}
 body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,75,49,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,75,49,0.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
 .app{position:relative;z-index:1;max-width:480px;margin:0 auto;padding-bottom:40px;}
 
@@ -169,6 +181,12 @@ select.input option{background:#ffffff;color:var(--text);}
 </style>
 </head>
 <body>
+<!-- Offline indicator -->
+<div id="offline-bar">📵 Tidak ada jaringan — data tersimpan lokal, akan dikirim saat online</div>
+<!-- Queue badge -->
+<div id="queue-badge" title="Data menunggu dikirim">⏳ <span id="queue-count">0</span> antrian</div>
+<!-- Sync toast -->
+<div id="sync-toast">✅ <span id="sync-msg">Data berhasil dikirim!</span></div>
 <div class="app">
 
   <!-- HEADER -->
@@ -448,11 +466,15 @@ function sendTrackPoint() {
     timestamp: new Date().toLocaleString('id-ID'),
     timestampMs: Date.now()
   };
-  fetch(APPS_SCRIPT_URL, {
-    method: 'POST', mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).catch(() => {}); // silent fail, jangan ganggu user
+  if (navigator.onLine) {
+    fetch(APPS_SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(() => dbEnqueue('trackQueue', payload)); // fallback ke queue
+  } else {
+    dbEnqueue('trackQueue', payload); // simpan ke antrian
+  }
 }
 
 // =====================
@@ -722,21 +744,34 @@ async function submitLaporan() {
     status: state.status, catatan: state.catatan,
     foto: state.photoBase64 || '',
   };
-  try {
-    await fetch(APPS_SCRIPT_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  } catch(e) {
-    document.getElementById('submit-error').style.display = 'flex';
-    btn.disabled = false;
-    btn.innerHTML = '<span class="submit-icon">🚀</span><span class="submit-text">KIRIM LAPORAN</span><span class="submit-arrow">→</span>';
-    return;
+
+  let submitted = false;
+
+  if (navigator.onLine) {
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      submitted = true;
+    } catch(e) {
+      // gagal walau online — simpan ke queue
+    }
   }
+
+  if (!submitted) {
+    // Simpan ke IndexedDB queue, kirim saat ada jaringan
+    await dbEnqueue('reportQueue', payload);
+    updateQueueBadge();
+    showSyncToast('📵 Disimpan offline — akan dikirim saat ada jaringan', 4000);
+  }
+
+  // Simpan ke localStorage sebagai riwayat lokal
   const reports = JSON.parse(localStorage.getItem('patrol_reports') || '[]');
-  reports.unshift({ ...payload, id: Date.now() });
+  reports.unshift({ ...payload, id: Date.now(), _synced: submitted });
   localStorage.setItem('patrol_reports', JSON.stringify(reports.slice(0, 200)));
+
   document.getElementById('s-nama').textContent = state.nama;
   document.getElementById('s-pos').textContent = state.blok;
   document.getElementById('s-status').textContent = state.status;
@@ -765,5 +800,174 @@ function resetForm() {
   goPage(1);
 }
 </script>
+<script>
+// =============================================
+// OFFLINE / PWA
+// =============================================
+
+// --- IndexedDB ---
+let _db = null;
+function openPatrolDB() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('PatrolDB', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('reportQueue'))
+        db.createObjectStore('reportQueue', { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains('trackQueue'))
+        db.createObjectStore('trackQueue', { keyPath: 'id', autoIncrement: true });
+    };
+    req.onsuccess  = e => { _db = e.target.result; res(_db); };
+    req.onerror    = e => rej(e.target.error);
+  });
+}
+
+async function dbEnqueue(store, data) {
+  const db = await openPatrolDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).add({ data, addedAt: Date.now() });
+    req.onsuccess = () => res(req.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function dbGetAll(store) {
+  const db = await openPatrolDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function dbDelete(store, id) {
+  const db = await openPatrolDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(id);
+    req.onsuccess = () => res();
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function dbCount(store) {
+  const db = await openPatrolDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).count();
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function updateQueueBadge() {
+  const r = await dbCount('reportQueue').catch(()=>0);
+  const t = await dbCount('trackQueue').catch(()=>0);
+  const total = r + t;
+  const badge = document.getElementById('queue-badge');
+  document.getElementById('queue-count').textContent = total;
+  badge.classList.toggle('show', total > 0);
+}
+
+let _toastTimer = null;
+function showSyncToast(msg, duration) {
+  duration = duration || 3000;
+  const toast = document.getElementById('sync-toast');
+  document.getElementById('sync-msg').textContent = msg;
+  toast.classList.add('show');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, duration);
+}
+
+async function flushReportQueue() {
+  const items = await dbGetAll('reportQueue').catch(()=>[]);
+  let sent = 0;
+  for (const item of items) {
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item.data)
+      });
+      await dbDelete('reportQueue', item.id);
+      sent++;
+    } catch(e) { break; }
+  }
+  return sent;
+}
+
+async function flushTrackQueue() {
+  const items = await dbGetAll('trackQueue').catch(()=>[]);
+  let sent = 0;
+  for (const item of items) {
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item.data)
+      });
+      await dbDelete('trackQueue', item.id);
+      sent++;
+    } catch(e) { break; }
+  }
+  return sent;
+}
+
+async function syncAll() {
+  if (!navigator.onLine) return;
+  const r = await flushReportQueue();
+  const t = await flushTrackQueue();
+  const total = r + t;
+  if (total > 0) {
+    showSyncToast('Terkirim ' + total + ' data ke server!');
+    updateQueueBadge();
+  }
+}
+
+window.addEventListener('online', function() {
+  document.getElementById('offline-bar').classList.remove('show');
+  showSyncToast('Jaringan tersambung, mengirim data...', 2000);
+  setTimeout(syncAll, 1500);
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then(function(reg) {
+      if ('sync' in reg) {
+        reg.sync.register('sync-patrol').catch(function(){});
+        reg.sync.register('sync-track').catch(function(){});
+      }
+    });
+  }
+});
+
+window.addEventListener('offline', function() {
+  document.getElementById('offline-bar').classList.add('show');
+});
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js')
+      .then(function(reg) {
+        reg.addEventListener('updatefound', function() {
+          const nw = reg.installing;
+          nw.addEventListener('statechange', function() {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              showSyncToast('Update tersedia — muat ulang untuk versi terbaru', 5000);
+            }
+          });
+        });
+      })
+      .catch(function(err) { console.warn('SW gagal:', err); });
+  });
+}
+
+window.addEventListener('load', function() {
+  if (!navigator.onLine) document.getElementById('offline-bar').classList.add('show');
+  updateQueueBadge();
+  if (navigator.onLine) syncAll();
+});
+</script>
+
 </body>
 </html>
