@@ -269,29 +269,39 @@ const BLOK_CONFIG=[
   {id:'C00C',label:'C00C',qr:'PATROL-C00C-C5N4R7',lat:-0.200260,lng:101.344218},
   {id:'C00D',label:'C00D',qr:'PATROL-C00D-D9P2W6',lat:-0.205610,lng:101.337479},
   {id:'C00E',label:'C00E',qr:'PATROL-C00E-E1T6Y3',lat:-0.201715,lng:101.333941},
-  {id:'C03D',label:'C03D',qr:'PATROL-C03D-C03D',lat:-0.211081,lng:101.329866},
-  
+  {id:'D00J',label:'D00J',qr:'PATROL-D00J-AFD4',lat:-0.111880,lng:101.308066},
 ];
 let allReports=[];let filterStatus='all';let maps={};let secMarkers={};let qrGenerated=false;
 let trackingData=[];
 let activeDate=''; // format: 'DD/MM/YYYY' atau '' = semua
 
-// Ambil tanggal dari string waktu (format: 'DD/MM/YYYY ...' atau ISO)
+// Ambil tanggal dari string waktu — handle semua format Google Sheets
 function extractDate(waktu) {
   if (!waktu) return '';
-  const s = String(waktu);
-  // Format ID: '10/3/2026, 08.00.00' atau '10/03/2026 08:00'
-  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-  if (m) return `${m[1].padStart(2,'0')}/${m[2].padStart(2,'0')}/${m[3]}`;
-  // ISO: '2026-03-10'
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  const s = String(waktu).trim();
+
+  // Format ID paling umum: '10/3/2026, 08.00.00' atau '10/03/2026 08:00'
+  const m1 = s.match(/^(\d{1,2})[\/](\d{1,2})[\/](\d{4})/);
+  if (m1) return `${m1[1].padStart(2,'0')}/${m1[2].padStart(2,'0')}/${m1[3]}`;
+
+  // ISO: '2026-03-10T...' atau '2026-03-10 ...'
+  const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m2) return `${m2[3]}/${m2[2]}/${m2[1]}`;
+
+  // Format dengan dash: '10-3-2026'
+  const m3 = s.match(/^(\d{1,2})[-](\d{1,2})[-](\d{4})/);
+  if (m3) return `${m3[1].padStart(2,'0')}/${m3[2].padStart(2,'0')}/${m3[3]}`;
+
   return '';
 }
 
 function getFilteredReports() {
   if (!activeDate) return allReports;
-  return allReports.filter(r => extractDate(r.waktu) === activeDate || extractDate(r.timestamp) === activeDate);
+  return allReports.filter(r => {
+    const d1 = extractDate(r.waktu);
+    const d2 = extractDate(r.timestamp);
+    return d1 === activeDate || d2 === activeDate;
+  });
 }
 
 function getFilteredTracking() {
@@ -310,12 +320,10 @@ function onDateChange() {
   const lbl = document.getElementById('date-filter-label');
   if (activeDate) { lbl.style.display='inline'; lbl.textContent = `📅 ${activeDate}`; }
   else { lbl.style.display='none'; }
-  // Re-render semua
-  updateStats(); renderLatest(); renderAllReports(); renderMapTrack();
-  updateMapMarkers('mini'); updateMapMarkers('full');
-  document.getElementById('report-count-badge').textContent = getFilteredReports().length;
+  // Reload data dari server + re-render
+  loadData();
   if (document.getElementById('tab-tracker').classList.contains('active')) {
-    renderTrackerMap(); renderDurasi(); renderTrackList();
+    loadTracking();
   }
 }
 
@@ -347,8 +355,10 @@ function switchTab(tab,el){
 }
 
 function initMap(elId,key){
-  const center=[-6.2088,106.8456];
-  maps[key]=L.map(elId,{zoomControl:true,scrollWheelZoom:key==='full'}).setView(center,16);
+  const lats=BLOK_CONFIG.map(b=>b.lat), lngs=BLOK_CONFIG.map(b=>b.lng);
+  const centerLat=(Math.min(...lats)+Math.max(...lats))/2;
+  const centerLng=(Math.min(...lngs)+Math.max(...lngs))/2;
+  maps[key]=L.map(elId,{zoomControl:true,scrollWheelZoom:key==='full'}).setView([centerLat,centerLng],14);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'©CartoDB',maxZoom:19}).addTo(maps[key]);
   BLOK_CONFIG.forEach(blok=>{
     const icon=L.divIcon({html:`<div style="background:#00D4FF;color:#000;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;font-family:Rajdhani,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,212,255,.5);">${blok.id}</div>`,className:'',iconAnchor:[20,10]});
@@ -382,20 +392,22 @@ function updateMapMarkers(key){
 
 function loadData(){
   document.getElementById('report-count-badge').textContent = '...';
-  const dateParam = activeDate ? `&date=${encodeURIComponent(activeDate)}` : '';
-  fetch(APPS_SCRIPT_URL + '?' + dateParam)
-    .then(r => r.json())
+  fetch(APPS_SCRIPT_URL)
+    .then(r => {
+      if (!r.ok && r.type !== 'opaque') throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(data => {
       if (!Array.isArray(data) || data.length === 0) {
         allReports = [];
       } else {
-        // Map kolom dari Google Sheets ke format dashboard
         allReports = data.map((row, i) => ({
           id: row['ID'] || Date.now() - i,
           nama: row['Nama'] || '',
           shift: row['Shift'] || '',
           blok: row['Pos'] || row['Blok'] || '',
           waktu: row['Waktu Patroli'] || row['Timestamp'] || '',
+          timestamp: row['Timestamp'] || '',
           gpsLat: row['GPS Lat'] || '',
           gpsLng: row['GPS Lng'] || '',
           status: row['Status'] || '',
@@ -410,6 +422,9 @@ function loadData(){
     .catch(err => {
       console.error('Gagal fetch data:', err);
       document.getElementById('report-count-badge').textContent = '!';
+      // Tampilkan error di overview biar keliatan
+      const el = document.getElementById('latest-list');
+      if (el) el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p style="color:var(--danger)">Gagal koneksi ke server</p><p style="font-size:12px;margin-top:8px;color:var(--muted2)">Pastikan Apps Script sudah di-deploy ulang dengan akses <b>"Anyone"</b></p></div>`;
     });
 }
 
@@ -489,8 +504,8 @@ function initTrackerMap() {
 }
 
 function loadTracking() {
-  const dateParam = activeDate ? `&date=${encodeURIComponent(activeDate)}` : '';
-  fetch(APPS_SCRIPT_URL+'?action=tracking'+dateParam)
+  // Selalu fetch semua tracking (2 jam terakhir), filter tanggal di client
+  fetch(APPS_SCRIPT_URL+'?action=tracking')
     .then(r=>r.json())
     .then(data=>{
       if(!Array.isArray(data)||data.length===0){
@@ -660,8 +675,15 @@ setInterval(()=>{
 
 setInterval(loadData,30000);
 window.addEventListener('load',()=>{
-  // Set tanggal default ke hari ini
-  setToday();
+  // Set date picker ke hari ini (visual only, tidak filter dulu)
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('global-date').value = today;
+  document.getElementById('btn-today').classList.add('active');
+  const [y,m,d] = today.split('-');
+  activeDate = `${d}/${m}/${y}`;
+  document.getElementById('date-filter-label').style.display='inline';
+  document.getElementById('date-filter-label').textContent = `📅 ${activeDate}`;
+  // Load data
   loadData();
   setTimeout(()=>initMap('live-map','mini'),300);
 });
