@@ -27,6 +27,12 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.2s infinite;}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
 .clock-top{font-family:'Rajdhani',sans-serif;font-size:20px;color:var(--accent);font-weight:700;}
+.date-picker-wrap{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:6px 12px;}
+.date-picker-wrap label{font-size:11px;color:var(--muted2);white-space:nowrap;letter-spacing:.5px;text-transform:uppercase;}
+#global-date{background:transparent;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;outline:none;color-scheme:dark;}
+.date-today-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);font-size:11px;cursor:pointer;white-space:nowrap;transition:all .2s;}
+.date-today-btn:hover,.date-today-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.08);}
+.date-filter-label{font-size:11px;color:var(--warn);background:rgba(255,184,0,.1);border:1px solid rgba(255,184,0,.25);border-radius:6px;padding:3px 8px;display:none;}
 .nav-tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto;flex-shrink:0;}
 .nav-tab{padding:14px 20px;border:none;background:transparent;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;display:flex;align-items:center;gap:7px;white-space:nowrap;transition:all .2s;}
 .nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
@@ -135,6 +141,12 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     </div>
   </div>
   <div class="topbar-right">
+    <div class="date-picker-wrap">
+      <label>📅 Tanggal</label>
+      <input type="date" id="global-date" onchange="onDateChange()">
+      <button class="date-today-btn" id="btn-today" onclick="setToday()">Hari ini</button>
+    </div>
+    <span class="date-filter-label" id="date-filter-label">Filter aktif</span>
     <div class="live-badge"><div class="live-dot"></div>LIVE</div>
     <div class="clock-top" id="clock-top">00:00:00</div>
   </div>
@@ -260,8 +272,57 @@ const BLOK_CONFIG=[
   {id:'D00J',label:'D00J',qr:'PATROL-D00J-AFD4',lat:-0.111880,lng:101.308066},
 ];
 let allReports=[];let filterStatus='all';let maps={};let secMarkers={};let qrGenerated=false;
-// === TRACKER VARS ===
 let trackingData=[];
+let activeDate=''; // format: 'DD/MM/YYYY' atau '' = semua
+
+// Ambil tanggal dari string waktu (format: 'DD/MM/YYYY ...' atau ISO)
+function extractDate(waktu) {
+  if (!waktu) return '';
+  const s = String(waktu);
+  // Format ID: '10/3/2026, 08.00.00' atau '10/03/2026 08:00'
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) return `${m[1].padStart(2,'0')}/${m[2].padStart(2,'0')}/${m[3]}`;
+  // ISO: '2026-03-10'
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  return '';
+}
+
+function getFilteredReports() {
+  if (!activeDate) return allReports;
+  return allReports.filter(r => extractDate(r.waktu) === activeDate || extractDate(r.timestamp) === activeDate);
+}
+
+function getFilteredTracking() {
+  if (!activeDate) return trackingData;
+  return trackingData.filter(r => extractDate(r['Timestamp']) === activeDate);
+}
+
+function onDateChange() {
+  const val = document.getElementById('global-date').value; // format: YYYY-MM-DD
+  if (!val) { activeDate=''; } else {
+    const [y,m,d] = val.split('-');
+    activeDate = `${d}/${m}/${y}`;
+  }
+  const isToday = val === new Date().toISOString().slice(0,10);
+  document.getElementById('btn-today').classList.toggle('active', isToday);
+  const lbl = document.getElementById('date-filter-label');
+  if (activeDate) { lbl.style.display='inline'; lbl.textContent = `📅 ${activeDate}`; }
+  else { lbl.style.display='none'; }
+  // Re-render semua
+  updateStats(); renderLatest(); renderAllReports(); renderMapTrack();
+  updateMapMarkers('mini'); updateMapMarkers('full');
+  document.getElementById('report-count-badge').textContent = getFilteredReports().length;
+  if (document.getElementById('tab-tracker').classList.contains('active')) {
+    renderTrackerMap(); renderDurasi(); renderTrackList();
+  }
+}
+
+function setToday() {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('global-date').value = today;
+  onDateChange();
+}
 let trackerMap=null;
 let trackerPolylines=[];
 let trackerMarkers=[];
@@ -300,7 +361,7 @@ function updateMapMarkers(key){
   if(secMarkers[key])secMarkers[key].forEach(m=>map.removeLayer(m));
   secMarkers[key]=[];
   const latest={};
-  allReports.forEach(r=>{if(r.gpsLat&&r.gpsLng&&!latest[r.nama])latest[r.nama]=r;});
+  getFilteredReports().forEach(r=>{if(r.gpsLat&&r.gpsLng&&!latest[r.nama])latest[r.nama]=r;});
   const positions=[];
   Object.values(latest).forEach(r=>{
     const c=r.status==='AMAN'?'#00FF88':'#FF4444';
@@ -320,7 +381,8 @@ function updateMapMarkers(key){
 
 function loadData(){
   document.getElementById('report-count-badge').textContent = '...';
-  fetch(APPS_SCRIPT_URL)
+  const dateParam = activeDate ? `&date=${encodeURIComponent(activeDate)}` : '';
+  fetch(APPS_SCRIPT_URL + '?' + dateParam)
     .then(r => r.json())
     .then(data => {
       if (!Array.isArray(data) || data.length === 0) {
@@ -342,7 +404,7 @@ function loadData(){
       }
       updateStats(); renderLatest(); renderAllReports(); renderMapTrack();
       updateMapMarkers('mini'); updateMapMarkers('full');
-      document.getElementById('report-count-badge').textContent = allReports.length;
+      document.getElementById('report-count-badge').textContent = getFilteredReports().length;
     })
     .catch(err => {
       console.error('Gagal fetch data:', err);
@@ -351,10 +413,11 @@ function loadData(){
 }
 
 function updateStats(){
-  document.getElementById('stat-total').textContent=allReports.length;
-  document.getElementById('stat-aman').textContent=allReports.filter(r=>r.status==='AMAN').length;
-  document.getElementById('stat-tidak').textContent=allReports.filter(r=>r.status==='TIDAK AMAN').length;
-  document.getElementById('stat-petugas').textContent=new Set(allReports.map(r=>r.nama)).size;
+  const r=getFilteredReports();
+  document.getElementById('stat-total').textContent=r.length;
+  document.getElementById('stat-aman').textContent=r.filter(x=>x.status==='AMAN').length;
+  document.getElementById('stat-tidak').textContent=r.filter(x=>x.status==='TIDAK AMAN').length;
+  document.getElementById('stat-petugas').textContent=new Set(r.map(x=>x.nama)).size;
 }
 
 function cardHTML(r){
@@ -364,9 +427,9 @@ function cardHTML(r){
   return`<div class="report-card ${a?'aman':'tidak'}" onclick="openModal(${r.id})">${ph}<div class="report-info"><div class="report-top"><span class="report-name">${r.nama}</span><span class="report-badge ${a?'badge-aman':'badge-tidak'}">${r.status}</span></div><div class="report-meta"><span>📍 ${r.blok}</span><span>⏰ ${(r.shift||'').split(' ')[0]}</span><span>🕐 ${r.waktu}</span>${r.gpsLat?`<span>📡 ${r.gpsLat},${r.gpsLng}</span>`:''}</div>${r.catatan?`<div class="report-notes">💬 "${r.catatan}"</div>`:''}</div></div>`;
 }
 
-function renderLatest(){const el=document.getElementById('latest-list');const items=allReports.slice(0,5);el.innerHTML=items.length?items.map(cardHTML).join(''):`<div class="empty-state"><div class="empty-icon">📭</div><p>Belum ada laporan</p></div>`;}
-function renderAllReports(){const el=document.getElementById('all-reports-list');let items=filterStatus==='all'?allReports:allReports.filter(r=>r.status===filterStatus);el.innerHTML=items.length?items.map(cardHTML).join(''):`<div class="empty-state"><div class="empty-icon">🔍</div><p>Tidak ada laporan</p></div>`;}
-function renderMapTrack(){const el=document.getElementById('map-track-list');el.innerHTML=allReports.slice(0,10).map(r=>{const a=r.status==='AMAN';return`<div class="report-card ${a?'aman':'tidak'}" onclick="openModal(${r.id})"><div class="report-photo-placeholder">${a?'✅':'🚨'}</div><div class="report-info"><div class="report-top"><span class="report-name">${r.nama} — ${r.blok}</span><span class="report-badge ${a?'badge-aman':'badge-tidak'}">${r.status}</span></div><div class="report-meta"><span>🕐 ${r.waktu}</span>${r.gpsLat?`<span>📡 ${r.gpsLat}, ${r.gpsLng}</span>`:'<span style="color:var(--muted)">GPS tidak tersedia</span>'}</div></div></div>`;}).join('')||`<div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada data</p></div>`;}
+function renderLatest(){const el=document.getElementById('latest-list');const items=getFilteredReports().slice(0,5);el.innerHTML=items.length?items.map(cardHTML).join(''):`<div class="empty-state"><div class="empty-icon">📭</div><p>Belum ada laporan${activeDate?' pada '+activeDate:''}</p></div>`;}
+function renderAllReports(){const el=document.getElementById('all-reports-list');const base=getFilteredReports();let items=filterStatus==='all'?base:base.filter(r=>r.status===filterStatus);el.innerHTML=items.length?items.map(cardHTML).join(''):`<div class="empty-state"><div class="empty-icon">🔍</div><p>Tidak ada laporan${activeDate?' pada '+activeDate:''}</p></div>`;}
+function renderMapTrack(){const el=document.getElementById('map-track-list');el.innerHTML=getFilteredReports().slice(0,10).map(r=>{const a=r.status==='AMAN';return`<div class="report-card ${a?'aman':'tidak'}" onclick="openModal(${r.id})"><div class="report-photo-placeholder">${a?'✅':'🚨'}</div><div class="report-info"><div class="report-top"><span class="report-name">${r.nama} — ${r.blok}</span><span class="report-badge ${a?'badge-aman':'badge-tidak'}">${r.status}</span></div><div class="report-meta"><span>🕐 ${r.waktu}</span>${r.gpsLat?`<span>📡 ${r.gpsLat}, ${r.gpsLng}</span>`:'<span style="color:var(--muted)">GPS tidak tersedia</span>'}</div></div></div>`;}).join('')||`<div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada data${activeDate?' pada '+activeDate:''}</p></div>`;}
 
 function filterReports(val,el){filterStatus=val;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderAllReports();}
 
@@ -425,7 +488,8 @@ function initTrackerMap() {
 }
 
 function loadTracking() {
-  fetch(APPS_SCRIPT_URL+'?action=tracking')
+  const dateParam = activeDate ? `&date=${encodeURIComponent(activeDate)}` : '';
+  fetch(APPS_SCRIPT_URL+'?action=tracking'+dateParam)
     .then(r=>r.json())
     .then(data=>{
       if(!Array.isArray(data)||data.length===0){
@@ -453,7 +517,7 @@ function renderTrackerMap() {
 
   // Kelompokkan titik per nama, urutkan berdasarkan timestampMs
   const byNama={};
-  trackingData.forEach(r=>{
+  getFilteredTracking().forEach(r=>{
     const lat=parseFloat(r['GPS Lat']), lng=parseFloat(r['GPS Lng']);
     if(!lat||!lng||isNaN(lat)||isNaN(lng)) return;
     if(!byNama[r['Nama']]) byNama[r['Nama']]=[];
@@ -496,11 +560,12 @@ function renderTrackerMap() {
 
 function renderDurasi() {
   const el=document.getElementById('tracker-durasi');
-  if(!trackingData.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">📡</div><p>Belum ada data</p></div>'; return; }
+  const filtered=getFilteredTracking();
+  if(!filtered.length){ el.innerHTML=`<div class="empty-state"><div class="empty-icon">📡</div><p>Belum ada data tracking${activeDate?' pada '+activeDate:''}</p></div>`; return; }
 
   // Kelompokkan per nama
   const byNama={};
-  trackingData.forEach(r=>{
+  filtered.forEach(r=>{
     if(!r['Nama']) return;
     if(!byNama[r['Nama']]) byNama[r['Nama']]={pts:[],shift:r['Shift']||''};
     byNama[r['Nama']].pts.push({
@@ -567,8 +632,9 @@ function renderDurasi() {
 
 function renderTrackList() {
   const el=document.getElementById('tracker-list');
-  if(!trackingData.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada data</p></div>'; return; }
-  el.innerHTML=trackingData.slice(0,30).map(r=>{
+  const filtered=getFilteredTracking();
+  if(!filtered.length){ el.innerHTML=`<div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada titik tracking${activeDate?' pada '+activeDate:''}</p></div>`; return; }
+  el.innerHTML=filtered.slice(0,30).map(r=>{
     const color=getColor(r['Nama']||'');
     const akurasi=r['Akurasi']||r['Akurasi GPS (m)']||'?';
     return `<div class="track-point-item">
@@ -593,6 +659,8 @@ setInterval(()=>{
 
 setInterval(loadData,30000);
 window.addEventListener('load',()=>{
+  // Set tanggal default ke hari ini
+  setToday();
   loadData();
   setTimeout(()=>initMap('live-map','mini'),300);
 });
