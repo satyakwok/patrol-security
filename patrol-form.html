@@ -685,9 +685,13 @@ async function submitLaporan() {
   };
   try {
     await fetch(APPS_SCRIPT_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', 
+      mode: 'no-cors', // Tetap pakai no-cors
+      headers: { 
+        'Content-Type': 'text/plain;charset=utf-8' // PENTING: Wajib text/plain agar browser tidak memblokir foto
+      },
       body: JSON.stringify(payload)
+    });
     });
   } catch(e) {
     document.getElementById('submit-error').style.display = 'flex';
