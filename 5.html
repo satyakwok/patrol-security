@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#004b31">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Patroli">
+<title>Patroli Security</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+:root{--bg:#f5f7f5;--card:#ffffff;--border:#e0e8e0;--darkgreen:#004b31;--green:#008031;--danger:#d32f2f;--warn:#f57c00;--text:#1a1a1a;--muted:#888;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* GPS LOCK */
+#gps-lock{display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.93);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:32px;}
+#gps-lock.show{display:flex;}
+.lock-icon{font-size:72px;margin-bottom:20px;animation:shake 1.5s infinite;}
+@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(8px);}60%{transform:translateX(-5px);}80%{transform:translateX(5px);}}
+.lock-title{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;color:#faa634;margin-bottom:10px;}
+.lock-msg{font-size:14px;color:rgba(255,255,255,0.75);line-height:1.7;margin-bottom:24px;}
+.lock-btn{padding:14px 32px;border-radius:12px;border:none;background:#faa634;color:#fff;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;cursor:pointer;}
+
+/* BARS */
+#offline-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#d32f2f;color:#fff;text-align:center;padding:8px 16px;font-size:13px;font-weight:600;align-items:center;justify-content:center;gap:8px;}
+#offline-bar.show{display:flex;}
+#sync-toast{display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;background:#004b31;color:#fff;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.25);align-items:center;gap:8px;white-space:nowrap;}
+#sync-toast.show{display:flex;}
+#queue-badge{display:none;position:fixed;top:60px;right:16px;z-index:9998;background:#f57c00;color:#fff;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;}
+#queue-badge.show{display:block;}
+
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,75,49,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,75,49,0.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.app{position:relative;z-index:1;max-width:480px;margin:0 auto;padding-bottom:40px;}
+
+/* HEADER */
+.header{background:var(--darkgreen);position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,75,49,0.25);}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-text{font-family:'Rajdhani',sans-serif;font-size:19px;font-weight:700;color:#fff;letter-spacing:.5px;}
+.logo-sub{font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;text-transform:uppercase;}
+.clock-time{font-family:'Rajdhani',sans-serif;font-size:24px;color:#faa634;font-weight:700;line-height:1;text-align:right;}
+.clock-date{font-size:11px;color:rgba(255,255,255,0.55);text-align:right;margin-top:2px;}
+.gps-bar-header{background:rgba(0,0,0,0.22);padding:5px 20px;display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.7);}
+.gps-hdot{width:8px;height:8px;border-radius:50%;background:#d32f2f;flex-shrink:0;transition:background .3s;}
+.gps-hdot.loading{background:#f57c00;animation:blink .8s infinite;}
+.gps-hdot.ok{background:#4caf50;animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* STEPS */
+.steps{display:flex;padding:10px 20px;gap:6px;background:#fff;border-bottom:1px solid var(--border);}
+.step{flex:1;height:4px;border-radius:2px;background:#e0e8e0;transition:all .3s;}
+.step.active{background:#faa634;}
+.step.done{background:#008031;}
+
+/* SECTION */
+.section{padding:20px;}
+.section-title{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--darkgreen);margin-bottom:4px;}
+.section-sub{font-size:13px;color:#5b5b5b;margin-bottom:20px;}
+
+/* FIELD */
+.field{margin-bottom:16px;}
+.label{font-size:12px;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;display:block;font-weight:600;}
+.inp{width:100%;background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;transition:border-color .2s;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+.inp:focus{border-color:var(--green);}
+.inp:disabled{background:#f2f2f2;color:#aaa;cursor:not-allowed;}
+select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23008031' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;cursor:pointer;}
+select.inp:disabled{background-image:none;}
+
+/* SHIFT */
+.shift-badge{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;border:2px solid var(--green);background:rgba(0,128,49,.07);width:100%;}
+.shift-badge-icon{font-size:22px;}
+.shift-badge-info{flex:1;}
+.shift-badge-label{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--darkgreen);}
+.shift-badge-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+.shift-tag{font-size:11px;background:var(--green);color:#fff;border-radius:6px;padding:2px 8px;font-weight:600;}
+.shift-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;}
+.shift-btn{padding:10px 6px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:#5b5b5b;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;text-align:center;transition:all .2s;}
+.shift-btn.sel{border-color:#faa634;background:#fff8ee;color:#c87800;font-weight:600;}
+
+/* TITIK PANTAU */
+.titik-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.titik-btn{padding:12px 6px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:#5b5b5b;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;cursor:pointer;text-align:center;transition:all .2s;}
+.titik-btn.sel{border-color:var(--darkgreen);background:rgba(0,75,49,.08);color:var(--darkgreen);}
+
+/* QR */
+.qr-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.qr-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.qr-dot{width:10px;height:10px;border-radius:50%;background:var(--muted);}
+.qr-dot.scanning{background:var(--warn);animation:blink 1s infinite;}
+.qr-dot.ok{background:var(--green);}
+.qr-dot.err{background:var(--danger);}
+.qr-lbl{font-size:13px;font-weight:500;}
+#qr-reader{width:100%;}
+.scan-btn{width:100%;padding:14px;border-radius:10px;border:1px dashed var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;transition:all .2s;}
+
+/* CAMERA */
+.cam-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.cam-preview{position:relative;background:#000;aspect-ratio:4/3;}
+#cam-video{width:100%;height:100%;object-fit:cover;}
+#cam-canvas{display:none;}
+.ts-overlay{position:absolute;bottom:10px;left:10px;right:10px;background:rgba(0,0,0,.7);border-radius:6px;padding:6px 10px;font-size:11px;color:#00D4FF;font-family:'Rajdhani',sans-serif;display:flex;justify-content:space-between;}
+#photo-prev{width:100%;aspect-ratio:4/3;object-fit:cover;display:none;}
+.cam-ctrl{padding:12px;display:flex;gap:10px;}
+.cam-btn{flex:1;padding:11px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
+.cam-btn.pri{background:#faa634;color:#fff;}
+.cam-btn.sec{background:var(--card);border:1px solid var(--border);color:var(--text);}
+
+/* STATUS */
+.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.status-card{padding:16px;border-radius:12px;border:2px solid var(--border);background:var(--card);cursor:pointer;text-align:center;transition:all .2s;}
+.status-card.aman.sel{border-color:var(--green);background:rgba(0,200,100,.08);}
+.status-card.tidak.sel{border-color:var(--danger);background:rgba(211,47,47,.08);}
+.s-icon{font-size:28px;margin-bottom:8px;}
+.s-label{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;}
+.status-card.aman .s-label{color:var(--green);}
+.status-card.tidak .s-label{color:var(--danger);}
+
+/* GPS bar page3 */
+.gps-mini{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:12px;margin-bottom:14px;}
+.gps-mini-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+.gps-mini-dot.ok{background:var(--green);animation:blink 2s infinite;}
+.gps-mini-dot.loading{background:var(--warn);animation:blink .8s infinite;}
+.gps-mini-text{color:var(--muted);}
+.gps-mini-coords{font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--green);margin-left:auto;}
+
+/* TEXTAREA */
+.notes{width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;resize:none;outline:none;min-height:80px;}
+.notes:focus{border-color:var(--green);}
+
+/* SUBMIT */
+.submit-btn{width:100%;padding:18px;border-radius:14px;border:none;background:linear-gradient(135deg,#faa634,#e8920a);color:#fff;font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;letter-spacing:1.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px;box-shadow:0 6px 20px rgba(250,166,52,0.4);transition:all .2s;}
+.submit-btn:hover{transform:translateY(-2px);}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+
+/* NAV */
+.nav-row{display:flex;gap:10px;margin-top:16px;}
+.nav-btn{flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;}
+.nav-btn.next{background:#faa634;border-color:#faa634;color:#fff;font-weight:700;box-shadow:0 3px 10px rgba(250,166,52,.3);}
+.nav-btn:disabled{opacity:.3;cursor:not-allowed;}
+
+/* POPUP */
+.popup-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;}
+.popup-ov.open{display:flex;}
+.popup-box{background:#fff;border-radius:20px;padding:28px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:popIn .3s ease;}
+@keyframes popIn{0%{transform:scale(.8);opacity:0;}100%{transform:scale(1);opacity:1;}}
+.popup-close{width:100%;padding:13px;border-radius:12px;border:none;background:#faa634;color:#fff;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px;}
+
+/* ALERT */
+.alert{padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;}
+.alert.info{background:rgba(0,128,200,.07);border:1px solid rgba(0,128,200,.2);color:#0a5a8a;}
+.alert.warn{background:rgba(245,124,0,.07);border:1px solid rgba(245,124,0,.2);color:var(--warn);}
+.alert.success{background:rgba(0,180,80,.07);border:1px solid rgba(0,180,80,.2);color:var(--green);}
+.alert.danger{background:rgba(211,47,47,.07);border:1px solid rgba(211,47,47,.2);color:var(--danger);}
+
+/* SUCCESS */
+.success-screen{text-align:center;padding:40px 20px;}
+.success-big{font-size:64px;margin-bottom:16px;display:block;animation:pop .4s ease;}
+@keyframes pop{0%{transform:scale(0);}70%{transform:scale(1.2);}100%{transform:scale(1);}}
+.success-title{font-family:'Rajdhani',sans-serif;font-size:28px;font-weight:700;color:var(--green);margin-bottom:8px;}
+.success-sub{font-size:14px;color:var(--muted);line-height:1.6;}
+.scard{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin:20px 0;text-align:left;}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.srow:last-child{border-bottom:none;}
+.srow .k{color:var(--muted);}
+.srow .v{font-weight:600;color:var(--text);text-align:right;max-width:60%;}
+.srow .v.g{color:var(--green);}
+.srow .v.r{color:var(--danger);}
+.reset-btn{width:100%;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;}
+
+.page{display:none;}
+.page.active{display:block;}
+</style>
+</head>
+<body>
+
+<!-- GPS LOCK OVERLAY -->
+<div id="gps-lock">
+  <div class="lock-icon">📵</div>
+  <div class="lock-title">GPS Tidak Aktif!</div>
+  <div class="lock-msg">
+    Aplikasi patroli memerlukan GPS yang aktif untuk mencegah pemalsuan data.<br><br>
+    Aktifkan <strong style="color:#faa634">Lokasi / GPS</strong> di pengaturan HP,<br>
+    lalu izinkan browser mengakses lokasi.
+  </div>
+  <button class="lock-btn" onclick="recheckGPS()">🔄 Coba Lagi</button>
+</div>
+
+<div id="offline-bar">📵 Tidak ada jaringan — data tersimpan lokal</div>
+<div id="queue-badge">⏳ <span id="queue-count">0</span> antrian</div>
+<div id="sync-toast">✅ <span id="sync-msg">Terkirim!</span></div>
+
+<div class="app">
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">
+        <img src="asian-agri-logo.png" style="width:36px;height:36px;object-fit:contain;">
+        <div>
+          <div class="logo-text">GUNUNG SAHILAN CONNECTED</div>
+          <div class="logo-sub">Security Integrity Android Patrol</div>
+        </div>
+      </div>
+      <div>
+        <div class="clock-time" id="clock">00:00:00</div>
+        <div class="clock-date" id="clockdate">-</div>
+      </div>
+    </div>
+    <div class="gps-bar-header">
+      <div class="gps-hdot loading" id="hgps-dot"></div>
+      <span id="hgps-text">Menunggu GPS...</span>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step active" id="step-1"></div>
+    <div class="step" id="step-2"></div>
+    <div class="step" id="step-3"></div>
+    <div class="step" id="step-4"></div>
+  </div>
+
+  <!-- PAGE 1 -->
+  <div class="page active" id="page-1">
+    <div class="section">
+      <div class="section-title">👤 Identitas</div>
+      <div class="section-sub">Lengkapi data diri sebelum patroli</div>
+
+      <div class="field">
+        <label class="label">Nama Security</label>
+        <input class="inp" id="nama" type="text" placeholder="Nama lengkap..." autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label class="label">Shift</label>
+        <div class="shift-badge">
+          <div class="shift-badge-icon" id="sh-icon">🌅</div>
+          <div class="shift-badge-info">
+            <div style="font-size:12px;color:#5b5b5b;margin-bottom:2px;" id="sh-greeting">Saat ini Anda bertugas di Shift</div>
+            <div class="shift-badge-label" id="sh-label">Pagi</div>
+            <div class="shift-badge-sub" id="sh-sub">07:00 – 15:00</div>
+          </div>
+          <div class="shift-tag">Otomatis</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">Afdeling</label>
+        <select class="inp" id="sel-afd" onchange="onAfdelingChange()">
+          <option value="">-- Pilih Afdeling --</option>
+          <option value="1">Afdeling 1</option>
+          <option value="2">Afdeling 2</option>
+          <option value="3">Afdeling 3</option>
+          <option value="4">Afdeling 4</option>
+          <option value="6">Afdeling 6</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="label">Nama Blok</label>
+        <select class="inp" id="sel-blok" disabled onchange="onBlokChange()">
+          <option value="">-- Pilih Afdeling dulu --</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="label">Titik Pantau</label>
+        <select class="inp" id="sel-titik" onchange="onTitikChange()">
+          <option value="">-- Pilih Titik Pantau --</option>
+          <option value="1">📍 Titik Pantau 1</option>
+          <option value="2">📍 Titik Pantau 2</option>
+          <option value="3">📍 Titik Pantau 3</option>
+        </select>
+      </div>
+
+      <div class="alert info">ℹ️ GPS wajib aktif. Setelah pilih lokasi, kamu akan scan QR Code untuk verifikasi.</div>
+
+      <div class="nav-row">
+        <button class="nav-btn next" onclick="goPage(2)">Lanjut → Scan QR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 2 -->
+  <div class="page" id="page-2">
+    <div class="section">
+      <div class="section-title">📷 Scan QR Blok</div>
+      <div class="section-sub">Arahkan kamera ke QR Code di titik pantau</div>
+
+      <div class="alert warn" id="qr-warn" style="display:none">⚠️ QR tidak sesuai! Scan QR di <strong id="qr-warn-blok"></strong></div>
+      <div class="alert success" id="qr-ok" style="display:none">✅ Terverifikasi: <strong id="qr-ok-pos"></strong></div>
+
+      <div class="qr-wrap">
+        <div class="qr-head">
+          <div class="qr-dot" id="qr-dot"></div>
+          <span class="qr-lbl" id="qr-lbl">Siap scan...</span>
+        </div>
+        <div id="qr-reader"></div>
+      </div>
+
+      <button class="scan-btn" id="btn-scan" onclick="startScanner()">📷 Mulai Scan QR</button>
+
+      <div class="nav-row" style="margin-top:16px;">
+        <button class="nav-btn" onclick="goPage(1)">← Kembali</button>
+        <button class="nav-btn next" id="btn-next-qr" onclick="goPage(3)" disabled>Lanjut → Foto</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 3 -->
+  <div class="page" id="page-3">
+    <div class="section">
+      <div class="section-title">📸 Foto & Status</div>
+      <div class="section-sub">Ambil foto kondisi blok & tentukan status</div>
+
+      <div class="gps-mini">
+        <div class="gps-mini-dot loading" id="gps-mini-dot"></div>
+        <span class="gps-mini-text" id="gps-mini-text">GPS...</span>
+        <span class="gps-mini-coords" id="gps-mini-coords"></span>
+      </div>
+
+      <div class="cam-wrap">
+        <div class="cam-preview">
+          <video id="cam-video" autoplay playsinline muted></video>
+          <canvas id="cam-canvas"></canvas>
+          <div class="ts-overlay">
+            <span id="ts-time">--:--:--</span>
+            <span id="ts-gps">GPS...</span>
+          </div>
+        </div>
+        <img id="photo-prev" alt="Foto">
+        <div class="cam-ctrl">
+          <button class="cam-btn sec" id="btn-retake" onclick="retakePhoto()" style="display:none;">↺ Ulang</button>
+          <button class="cam-btn pri" id="btn-capture" onclick="capturePhoto()">📷 Ambil Foto</button>
+        </div>
+      </div>
+
+      <div class="alert warn" id="photo-warn" style="display:none;margin-top:12px;">⚠️ Foto wajib diambil!</div>
+
+      <div class="field" style="margin-top:20px;">
+        <label class="label">Status Kondisi Blok</label>
+        <div class="status-grid">
+          <div class="status-card aman" onclick="setStatus('AMAN',this)">
+            <div class="s-icon">✅</div>
+            <div class="s-label">AMAN</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Kondisi normal</div>
+          </div>
+          <div class="status-card tidak" onclick="setStatus('TIDAK AMAN',this)">
+            <div class="s-icon">🚨</div>
+            <div class="s-label">TIDAK AMAN</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Ada masalah</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">Catatan (opsional)</label>
+        <textarea class="notes" id="catatan" placeholder="Tulis catatan jika ada kejadian khusus..."></textarea>
+      </div>
+
+      <div class="nav-row">
+        <button class="nav-btn" onclick="goPage(2)">← Kembali</button>
+        <button class="nav-btn next" onclick="goPage(4)">Lanjut → Kirim</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 4 -->
+  <div class="page" id="page-4">
+    <div class="section">
+      <div class="section-title">📋 Review & Kirim</div>
+      <div class="section-sub">Periksa kembali sebelum dikirim</div>
+      <div class="scard">
+        <div class="srow"><span class="k">👤 Nama</span><span class="v" id="r-nama">-</span></div>
+        <div class="srow"><span class="k">⏰ Shift</span><span class="v" id="r-shift">-</span></div>
+        <div class="srow"><span class="k">🏢 Afdeling</span><span class="v" id="r-afd">-</span></div>
+        <div class="srow"><span class="k">📍 Blok</span><span class="v" id="r-blok">-</span></div>
+        <div class="srow"><span class="k">🎯 Titik Pantau</span><span class="v" id="r-titik">-</span></div>
+        <div class="srow"><span class="k">🕐 Waktu</span><span class="v" id="r-waktu">-</span></div>
+        <div class="srow"><span class="k">📡 GPS</span><span class="v" id="r-gps">-</span></div>
+        <div class="srow"><span class="k">📸 Foto</span><span class="v" id="r-foto">-</span></div>
+        <div class="srow"><span class="k">🚦 Status</span><span class="v" id="r-status">-</span></div>
+        <div class="srow"><span class="k">📝 Catatan</span><span class="v" id="r-catatan">-</span></div>
+      </div>
+      <img id="review-photo" style="width:100%;border-radius:10px;margin-bottom:16px;display:none;" alt="">
+      <div class="alert info">Laporan dikirim ke Google Sheets & Dashboard Admin secara real-time.</div>
+      <div class="alert danger" id="submit-err" style="display:none">❌ Gagal mengirim. Cek koneksi internet.</div>
+      <button class="submit-btn" id="submit-btn" onclick="submitLaporan()">
+        <span>🚀</span><span style="flex:1;text-align:center;">KIRIM LAPORAN</span><span>→</span>
+      </button>
+      <div class="nav-row">
+        <button class="nav-btn" onclick="goPage(3)">← Kembali</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 5 -->
+  <div class="page" id="page-5">
+    <div class="success-screen">
+      <span class="success-big">✅</span>
+      <div class="success-title">Laporan Terkirim!</div>
+      <div class="success-sub">Data patroli berhasil dikirim ke sistem.</div>
+      <div class="scard">
+        <div class="srow"><span class="k">Nama</span><span class="v" id="s-nama">-</span></div>
+        <div class="srow"><span class="k">Afdeling</span><span class="v" id="s-afd">-</span></div>
+        <div class="srow"><span class="k">Blok</span><span class="v" id="s-blok">-</span></div>
+        <div class="srow"><span class="k">Titik Pantau</span><span class="v" id="s-titik">-</span></div>
+        <div class="srow"><span class="k">Status</span><span class="v" id="s-status">-</span></div>
+        <div class="srow"><span class="k">Waktu</span><span class="v" id="s-waktu">-</span></div>
+      </div>
+      <button class="reset-btn" onclick="resetForm()">🔄 Patroli Baru</button>
+    </div>
+  </div>
+
+  <!-- POPUP RADIUS -->
+  <div class="popup-ov" id="popup-radius">
+    <div class="popup-box">
+      <div style="font-size:52px;margin-bottom:12px;">🚫</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--danger);margin-bottom:8px;">Di Luar Jangkauan!</div>
+      <div style="font-size:14px;color:#5b5b5b;line-height:1.6;" id="popup-msg">Kamu terlalu jauh dari blok ini.</div>
+      <button class="popup-close" onclick="document.getElementById('popup-radius').classList.remove('open')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG & DATA
+// ============================================================
+var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9gEPXcWDPX-9XylwQlk9Hah0vnQeu6pp4L6inTaklMdgkUj3_Xd2boxVUAQ-Y4YUt2Q/exec';
+var GPS_MAX_M  = 100;
+
+// Generate QR unik tiap blok
+function makeQR(blok) {
+  var h = 0;
+  for (var i = 0; i < blok.length; i++) h = (h * 31 + blok.charCodeAt(i)) & 0xffff;
+  return 'PATROL-' + blok.toUpperCase() + '-' + h.toString(16).toUpperCase().padStart(4,'0');
+}
+
+// DATA BLOK per afdeling
+var AFD = {
+  '1':['A99a','A99b','A99c','A99d','A99e','A99f','A99g','A99h','A99i','A99j','A99k','A99l','A99m','A99n','A99o','A99p','A99q','A99r','A99s','A99t','A99u','A99v','A99w','A99x','A99y','A99z'],
+  '2':['B00a','B00b','B00c','B00d','B00e','B00f','B00g','B00h','B00i','B00j','B00k','B00l','B00m','B00n','B00o','B00p','B00q','B00r','B00s','B00t','B00u','B00v','B00w','B00x','B00y','B01a','B01b','B01c','B01d','B01e','B01f','B03a','B03b','B04a','B04b','B04c','B04d','B04e','B10a'],
+  '3':['C00a','C00b','C00c','C00d','C00e','C00f','C00g','C00h','C00i','C00j','C00k','C00l','C00m','C00n','C00o','C00p','C00q','C01a','C01b','C01c','C01d','C01e','C01f','C01g','C01h','C01i','C01j','C01k','C01l','C01m','C03a','C03b','C03c','C03d','C03e','C03f','C03g','C05a','C05b','C05c','C07a','C07b','C07c','C08a'],
+  '4':['D00a','D00b','D00c','D00d','D00e','D00f','D00g','D00h','D00i','D00j','D00k','D00l','D00m','D00n','D01a','D01b','D01c','D01d','D01e','D01f','D01g','D01h','D01i','D01j','D01k','D01l','D01m','D01n','D03a','D03b'],
+  '6':['F06a','F06b','F06c','F06d','F06e','F06f','F07a','F07b','F07c','F07d','F07e','F07f','F07g','F07h','F07i','F08a','F08b','F08c','F08d','F08e','F08f','F08g','F08h','F10a']
+};
+
+// ============================================================
+// POLYGON BLOK (point-in-polygon) — tambahkan blok lain pelan-pelan
+// Format: [lat, lng] searah jarum jam
+// ============================================================
+var BLOK_POLYGON = {
+  // C00c — dari KML trace (Avenza Maps)
+  'C00c': [
+    [-0.204106, 101.345582],
+    [-0.199361, 101.342761],
+    [-0.198300, 101.342554],
+    [-0.198300, 101.342162],
+    [-0.204118, 101.342191],
+    [-0.204157, 101.345667],
+    [-0.204106, 101.345582]  // tutup polygon
+  ]
+  // Tambahkan blok lain di sini setelah di-trace di Avenza:
+  // 'C00d': [[-0.xxx, 101.xxx], [-0.xxx, 101.xxx], ...],
+};
+
+// Koordinat pusat blok (fallback radius untuk blok tanpa polygon)
+// Isi dengan koordinat tengah blok yang sebenarnya
+var BLOK_CENTER = {
+  // Contoh: 'C00a': [-0.200, 101.344],
+};
+var GPS_FALLBACK_M = 500; // radius fallback jika belum ada polygon
+
+// Ray-casting algorithm — cek apakah titik di dalam polygon
+// poly = [[lat,lng], ...] — x=lng (horizontal), y=lat (vertical)
+function pointInPolygon(lat, lng, poly) {
+  var inside = false;
+  var n = poly.length;
+  for (var i = 0, j = n - 1; i < n; j = i++) {
+    var xi = poly[i][1], yi = poly[i][0]; // xi=lng, yi=lat
+    var xj = poly[j][1], yj = poly[j][0];
+    if (((yi > lat) !== (yj > lat)) &&
+        (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// Fungsi utama validasi lokasi — hybrid polygon + radius
+function checkBlokLocation(blok, lat, lng) {
+  var poly = BLOK_POLYGON[blok];
+  if (poly) {
+    // Punya polygon — cek point-in-polygon
+    var inside = pointInPolygon(parseFloat(lat), parseFloat(lng), poly);
+    return { ok: inside, mode: 'polygon', msg: inside ? '' : 'Kamu berada di luar area blok ' + blok.toUpperCase() + '. Pastikan kamu berada di dalam blok yang dipilih.' };
+  }
+  var center = BLOK_CENTER[blok];
+  if (center) {
+    // Punya center — cek radius fallback
+    var d = Math.round(dist(parseFloat(lat), parseFloat(lng), center[0], center[1]));
+    var ok = d <= GPS_FALLBACK_M;
+    return { ok: ok, mode: 'radius', msg: ok ? '' : 'Kamu berada ±' + d + 'm dari ' + blok.toUpperCase() + '. Harus dalam radius ' + GPS_FALLBACK_M + 'm.' };
+  }
+  // Belum ada data koordinat — loloskan dulu
+  return { ok: true, mode: 'none' };
+}
+
+// ============================================================
+// STATE
+// ============================================================
+var S = {
+  nama:'',shift:'',afd:'',blok:'',titik:'',
+  lat:null,lng:null,acc:null,
+  photo:null,waktu:'',status:'',catatan:'',
+  qrOK:false,stream:null,gpsOK:false
+};
+var qrReader = null, trackTimer = null, gpsWatchId = null, gpsTimer = null, gpsGotFix = false;
+
+// ============================================================
+// GPS — WAJIB AKTIF
+// ============================================================
+function startGPS() {
+  if (!navigator.geolocation) { showLock(); return; }
+  gpsTimer = setTimeout(function(){ if (!gpsGotFix) showLock(); }, 12000);
+  gpsWatchId = navigator.geolocation.watchPosition(onGPSSuccess, onGPSError,
+    {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+}
+
+function onGPSSuccess(pos) {
+  clearTimeout(gpsTimer);
+  gpsGotFix = true;
+  S.gpsOK = true;
+  S.lat = pos.coords.latitude.toFixed(6);
+  S.lng = pos.coords.longitude.toFixed(6);
+  S.acc = Math.round(pos.coords.accuracy);
+  document.getElementById('gps-lock').classList.remove('show');
+  // header bar
+  document.getElementById('hgps-dot').className = 'gps-hdot ok';
+  document.getElementById('hgps-text').textContent = 'GPS OK · ±' + S.acc + 'm · ' + S.lat + ', ' + S.lng;
+  // page-3 mini
+  var md = document.getElementById('gps-mini-dot');
+  if (md) md.className = 'gps-mini-dot ok';
+  var mt = document.getElementById('gps-mini-text');
+  if (mt) mt.textContent = 'Akurasi ±' + S.acc + 'm';
+  var mc = document.getElementById('gps-mini-coords');
+  if (mc) mc.textContent = S.lat + ', ' + S.lng;
+  var tg = document.getElementById('ts-gps');
+  if (tg) tg.textContent = S.lat + ',' + S.lng;
+}
+
+function onGPSError(err) {
+  S.gpsOK = false;
+  clearTimeout(gpsTimer);
+  showLock();
+  document.getElementById('hgps-dot').className = 'gps-hdot';
+  document.getElementById('hgps-text').textContent = 'GPS tidak aktif!';
+}
+
+function showLock() {
+  document.getElementById('gps-lock').classList.add('show');
+}
+
+function recheckGPS() {
+  if (gpsWatchId !== null) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+  gpsGotFix = false;
+  document.getElementById('hgps-dot').className = 'gps-hdot loading';
+  document.getElementById('hgps-text').textContent = 'Mencoba ulang GPS...';
+  startGPS();
+}
+
+window.addEventListener('load', startGPS);
+
+// ============================================================
+// CLOCK
+// ============================================================
+function tick() {
+  var now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('id-ID');
+  document.getElementById('clockdate').textContent = now.toLocaleDateString('id-ID',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  var ts = document.getElementById('ts-time');
+  if (ts) ts.textContent = now.toLocaleTimeString('id-ID');
+}
+setInterval(tick,1000); tick();
+
+// ============================================================
+// SHIFT OTOMATIS
+// ============================================================
+function autoShift() {
+  var h = new Date().getHours();
+  var data = (h>=7&&h<15) ? {label:'Pagi',  sub:'07:00 – 15:00', icon:'🌅', val:'Pagi 07:00-15:00'} :
+             (h>=15&&h<23)? {label:'Siang', sub:'15:00 – 23:00', icon:'☀️', val:'Siang 15:00-23:00'} :
+                            {label:'Malam', sub:'23:00 – 07:00', icon:'🌙', val:'Malam 23:00-07:00'};
+  S.shift = data.val;
+  document.getElementById('sh-icon').textContent  = data.icon;
+  document.getElementById('sh-label').textContent = data.label;
+  document.getElementById('sh-sub').textContent   = data.sub;
+}
+window.addEventListener('load', autoShift);
+
+// ============================================================
+// AFDELING & BLOK
+// ============================================================
+function onAfdelingChange() {
+  var afd = document.getElementById('sel-afd').value;
+  S.afd = afd; S.blok = ''; S.titik = '';
+  document.getElementById('sel-titik').value = '';
+  var sel = document.getElementById('sel-blok');
+  if (!afd) { sel.innerHTML='<option value="">-- Pilih Afdeling dulu --</option>'; sel.disabled=true; return; }
+  var list = AFD[afd] || [];
+  sel.innerHTML = '<option value="">-- Pilih Blok --</option>';
+  list.forEach(function(b){
+    var o=document.createElement('option'); o.value=b; o.textContent=b.toUpperCase(); sel.appendChild(o);
+  });
+  sel.disabled = false;
+}
+
+function onBlokChange() {
+  S.blok = document.getElementById('sel-blok').value;
+  S.titik = '';
+  document.getElementById('sel-titik').value = '';
+}
+
+function onTitikChange() {
+  S.titik = document.getElementById('sel-titik').value;
+}
+
+// ============================================================
+// JARAK
+// ============================================================
+function dist(la1,ln1,la2,ln2) {
+  var R=6371000, dLa=(la2-la1)*Math.PI/180, dLn=(ln2-ln1)*Math.PI/180;
+  var a=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLn/2)*Math.sin(dLn/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ============================================================
+// PAGE NAVIGATION
+// ============================================================
+function goPage(n) {
+  // GPS wajib di setiap navigasi
+  if (!S.gpsOK) { showLock(); return; }
+
+  if (n===2) {
+    S.nama = document.getElementById('nama').value.trim();
+    S.afd  = document.getElementById('sel-afd').value;
+    S.blok = document.getElementById('sel-blok').value;
+    if (!S.nama)  { alert('Nama wajib diisi!'); return; }
+    if (!S.shift) { alert('Pilih shift!'); return; }
+    if (!S.afd)   { alert('Pilih afdeling!'); return; }
+    if (!S.blok)  { alert('Pilih blok!'); return; }
+    if (!S.titik) { alert('Pilih titik pantau (1, 2, atau 3)!'); return; }
+
+    // Cek lokasi — polygon atau radius fallback
+    if (S.lat && S.lng) {
+      var chk = checkBlokLocation(S.blok, S.lat, S.lng);
+      if (!chk.ok) {
+        document.getElementById('popup-msg').textContent = chk.msg;
+        document.getElementById('popup-radius').classList.add('open');
+        return;
+      }
+    }
+    startTracking();
+  }
+
+  if (n===4) {
+    if (!S.photo)  { document.getElementById('photo-warn').style.display='flex'; return; }
+    if (!S.status) { alert('Tentukan status kondisi blok!'); return; }
+    buildReview();
+  }
+
+  if (n!==3 && S.stream) { S.stream.getTracks().forEach(function(t){t.stop();}); S.stream=null; }
+  if (n!==2 && qrReader) { qrReader.stop().catch(function(){}); qrReader=null; }
+
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('page-'+n).classList.add('active');
+  for(var i=1;i<=4;i++){
+    var el=document.getElementById('step-'+i);
+    if(el) el.className='step'+(i<n?' done':i===n?' active':'');
+  }
+  if(n===3) startCamera();
+  window.scrollTo(0,0);
+}
+
+// ============================================================
+// QR SCANNER
+// ============================================================
+function startScanner() {
+  document.getElementById('btn-scan').style.display='none';
+  document.getElementById('qr-dot').className='qr-dot scanning';
+  document.getElementById('qr-lbl').textContent='Scanning...';
+  qrReader = new Html5Qrcode('qr-reader');
+  qrReader.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}},
+    function(txt){ handleQR(txt); }, function(){}).catch(function(){
+    document.getElementById('qr-dot').className='qr-dot err';
+    document.getElementById('qr-lbl').textContent='Izin kamera ditolak!';
+    document.getElementById('btn-scan').style.display='flex';
+  });
+}
+
+function handleQR(txt) {
+  if(qrReader){qrReader.stop().catch(function(){}); qrReader=null;}
+  var exp = makeQR(S.blok);
+  if(txt===exp) {
+    S.qrOK=true;
+    document.getElementById('qr-dot').className='qr-dot ok';
+    document.getElementById('qr-lbl').textContent='QR Terverifikasi ✓';
+    document.getElementById('qr-warn').style.display='none';
+    document.getElementById('qr-ok').style.display='flex';
+    document.getElementById('qr-ok-pos').textContent=S.blok.toUpperCase()+' Titik '+S.titik;
+    document.getElementById('btn-next-qr').disabled=false;
+  } else {
+    document.getElementById('qr-dot').className='qr-dot err';
+    document.getElementById('qr-lbl').textContent='QR Salah!';
+    document.getElementById('qr-warn').style.display='flex';
+    document.getElementById('qr-warn-blok').textContent=S.blok.toUpperCase();
+    document.getElementById('btn-scan').style.display='flex';
+    document.getElementById('btn-scan').textContent='🔄 Scan Ulang';
+  }
+}
+
+// ============================================================
+// CAMERA
+// ============================================================
+async function startCamera() {
+  try {
+    var stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:960}},audio:false});
+    S.stream=stream;
+    document.getElementById('cam-video').srcObject=stream;
+    document.getElementById('cam-video').style.display='block';
+    document.getElementById('photo-prev').style.display='none';
+    document.getElementById('btn-capture').style.display='flex';
+    document.getElementById('btn-retake').style.display='none';
+  } catch(e){ alert('Aktifkan izin kamera!'); }
+}
+
+function capturePhoto() {
+  var v=document.getElementById('cam-video'), c=document.getElementById('cam-canvas');
+  c.width=v.videoWidth||640; c.height=v.videoHeight||480;
+  var ctx=c.getContext('2d');
+  ctx.drawImage(v,0,0,c.width,c.height);
+  var now=new Date();
+  S.waktu=now.toISOString();
+  var txt=now.toLocaleString('id-ID')+' | GPS:'+(S.lat||'N/A')+','+(S.lng||'N/A')+' | '+S.blok.toUpperCase()+' T'+S.titik;
+  ctx.fillStyle='rgba(0,0,0,.65)';
+  ctx.fillRect(0,c.height-36,c.width,36);
+  ctx.fillStyle='#00D4FF';
+  ctx.font='bold '+Math.max(11,Math.floor(c.width/62))+'px monospace';
+  ctx.fillText(txt,8,c.height-12);
+  S.photo=c.toDataURL('image/jpeg',.75);
+  document.getElementById('photo-prev').src=S.photo;
+  document.getElementById('photo-prev').style.display='block';
+  document.getElementById('cam-video').style.display='none';
+  document.getElementById('btn-capture').style.display='none';
+  document.getElementById('btn-retake').style.display='flex';
+  document.getElementById('photo-warn').style.display='none';
+  if(S.stream){S.stream.getTracks().forEach(function(t){t.stop();}); S.stream=null;}
+}
+
+function retakePhoto(){ S.photo=null; startCamera(); }
+
+// ============================================================
+// STATUS
+// ============================================================
+function setStatus(val,el) {
+  S.status=val;
+  document.querySelectorAll('.status-card').forEach(function(c){c.classList.remove('sel');});
+  el.classList.add('sel');
+}
+
+// ============================================================
+// REVIEW
+// ============================================================
+function buildReview() {
+  S.catatan=document.getElementById('catatan').value.trim();
+  document.getElementById('r-nama').textContent  = S.nama;
+  document.getElementById('r-shift').textContent = S.shift;
+  document.getElementById('r-afd').textContent   = 'Afdeling '+S.afd;
+  document.getElementById('r-blok').textContent  = S.blok.toUpperCase();
+  document.getElementById('r-titik').textContent = 'Titik '+S.titik;
+  document.getElementById('r-waktu').textContent = new Date().toLocaleString('id-ID');
+  document.getElementById('r-gps').textContent   = S.lat?(S.lat+', '+S.lng+' (±'+S.acc+'m)'):'N/A';
+  document.getElementById('r-foto').textContent  = S.photo?'✅ Sudah':'❌ Belum';
+  var se=document.getElementById('r-status');
+  se.textContent=S.status; se.className='v '+(S.status==='AMAN'?'g':'r');
+  document.getElementById('r-catatan').textContent = S.catatan||'-';
+  if(S.photo){ var rp=document.getElementById('review-photo'); rp.src=S.photo; rp.style.display='block'; }
+}
+
+// ============================================================
+// SUBMIT
+// ============================================================
+async function submitLaporan() {
+  if(!S.gpsOK||!S.lat){ showLock(); return; }
+  var btn=document.getElementById('submit-btn');
+  btn.disabled=true; btn.innerHTML='<span>⏳</span><span style="flex:1;text-align:center;">Mengirim...</span>';
+  document.getElementById('submit-err').style.display='none';
+  var payload={
+    nama:S.nama, shift:S.shift, afdeling:'Afdeling '+S.afd,
+    pos:S.blok.toUpperCase(), titikPantau:'Titik '+S.titik,
+    waktu:new Date().toLocaleString('id-ID'), waktuISO:S.waktu||new Date().toISOString(),
+    gpsLat:S.lat||'', gpsLng:S.lng||'', gpsAccuracy:S.acc||'',
+    status:S.status, catatan:S.catatan, foto:S.photo||''
+  };
+  var sent=false;
+  if(navigator.onLine){
+    try{ await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); sent=true; }
+    catch(e){}
+  }
+  if(!sent){ await dbQ('reportQueue',payload); updateBadge(); showToast('📵 Disimpan offline',4000); }
+  var rpts=JSON.parse(localStorage.getItem('patrol_reports')||'[]');
+  rpts.unshift(Object.assign({},payload,{id:Date.now(),_synced:sent}));
+  localStorage.setItem('patrol_reports',JSON.stringify(rpts.slice(0,200)));
+  document.getElementById('s-nama').textContent  = S.nama;
+  document.getElementById('s-afd').textContent   = 'Afdeling '+S.afd;
+  document.getElementById('s-blok').textContent  = S.blok.toUpperCase();
+  document.getElementById('s-titik').textContent = 'Titik '+S.titik;
+  var ss=document.getElementById('s-status');
+  ss.textContent=S.status; ss.className='v '+(S.status==='AMAN'?'g':'r');
+  document.getElementById('s-waktu').textContent = new Date().toLocaleString('id-ID');
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('page-5').classList.add('active');
+  window.scrollTo(0,0);
+}
+
+// ============================================================
+// TRACKING
+// ============================================================
+function startTracking(){
+  if(trackTimer) return;
+  sendTrack();
+  trackTimer=setInterval(sendTrack,30000);
+}
+function stopTracking(){ if(trackTimer){clearInterval(trackTimer);trackTimer=null;} }
+function sendTrack(){
+  if(!S.lat||!S.lng||!S.nama) return;
+  var p={type:'track',nama:S.nama,shift:S.shift||'',afdeling:S.afd?'Afdeling '+S.afd:'',
+    blok:S.blok?S.blok.toUpperCase():'',titikPantau:S.titik?'Titik '+S.titik:'',
+    gpsLat:S.lat,gpsLng:S.lng,gpsAccuracy:S.acc||'',
+    timestamp:new Date().toLocaleString('id-ID'),timestampMs:Date.now()};
+  if(navigator.onLine){
+    fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})
+      .catch(function(){dbQ('trackQueue',p);});
+  } else { dbQ('trackQueue',p); }
+}
+
+// ============================================================
+// RESET
+// ============================================================
+function resetForm(){
+  stopTracking();
+  S={nama:'',shift:'',afd:'',blok:'',titik:'',lat:S.lat,lng:S.lng,acc:S.acc,photo:null,waktu:'',status:'',catatan:'',qrOK:false,stream:null,gpsOK:S.gpsOK};
+  document.getElementById('nama').value='';
+  document.getElementById('sel-afd').value='';
+  document.getElementById('sel-blok').innerHTML='<option value="">-- Pilih Afdeling dulu --</option>';
+  document.getElementById('sel-blok').disabled=true;
+  document.getElementById('catatan').value='';
+  document.querySelectorAll('.status-card').forEach(function(c){c.classList.remove('sel');});
+  document.getElementById('sel-titik').value='';
+  document.getElementById('qr-warn').style.display='none';
+  document.getElementById('qr-ok').style.display='none';
+  document.getElementById('btn-next-qr').disabled=true;
+  document.getElementById('btn-scan').style.display='flex';
+  document.getElementById('btn-scan').textContent='📷 Mulai Scan QR';
+  document.getElementById('qr-dot').className='qr-dot';
+  document.getElementById('qr-lbl').textContent='Siap scan...';
+  autoShift();
+  goPage(1);
+}
+</script>
+
+<script>
+// ============================================================
+// OFFLINE / IndexedDB / PWA
+// ============================================================
+var _db=null;
+function openDB(){
+  if(_db) return Promise.resolve(_db);
+  return new Promise(function(res,rej){
+    var r=indexedDB.open('PatrolDB',1);
+    r.onupgradeneeded=function(e){
+      var db=e.target.result;
+      if(!db.objectStoreNames.contains('reportQueue')) db.createObjectStore('reportQueue',{keyPath:'id',autoIncrement:true});
+      if(!db.objectStoreNames.contains('trackQueue'))  db.createObjectStore('trackQueue', {keyPath:'id',autoIncrement:true});
+    };
+    r.onsuccess=function(e){_db=e.target.result;res(_db);};
+    r.onerror=function(e){rej(e.target.error);};
+  });
+}
+function dbQ(store,data){
+  return openDB().then(function(db){
+    return new Promise(function(res,rej){
+      var tx=db.transaction(store,'readwrite');
+      var r=tx.objectStore(store).add({data:data,addedAt:Date.now()});
+      r.onsuccess=function(){res(r.result);}; r.onerror=function(e){rej(e.target.error);};
+    });
+  });
+}
+function dbAll(store){
+  return openDB().then(function(db){
+    return new Promise(function(res,rej){
+      var tx=db.transaction(store,'readonly');
+      var r=tx.objectStore(store).getAll();
+      r.onsuccess=function(e){res(e.target.result);}; r.onerror=function(e){rej(e.target.error);};
+    });
+  });
+}
+function dbDel(store,id){
+  return openDB().then(function(db){
+    return new Promise(function(res,rej){
+      var tx=db.transaction(store,'readwrite');
+      var r=tx.objectStore(store).delete(id);
+      r.onsuccess=function(){res();}; r.onerror=function(e){rej(e.target.error);};
+    });
+  });
+}
+function dbCnt(store){
+  return openDB().then(function(db){
+    return new Promise(function(res,rej){
+      var tx=db.transaction(store,'readonly');
+      var r=tx.objectStore(store).count();
+      r.onsuccess=function(e){res(e.target.result);}; r.onerror=function(e){rej(e.target.error);};
+    });
+  });
+}
+function updateBadge(){
+  Promise.all([dbCnt('reportQueue').catch(function(){return 0;}),dbCnt('trackQueue').catch(function(){return 0;})]).then(function(r){
+    var t=r[0]+r[1];
+    document.getElementById('queue-count').textContent=t;
+    document.getElementById('queue-badge').classList.toggle('show',t>0);
+  });
+}
+var _tt=null;
+function showToast(msg,dur){
+  dur=dur||3000;
+  var el=document.getElementById('sync-toast');
+  document.getElementById('sync-msg').textContent=msg;
+  el.classList.add('show');
+  if(_tt) clearTimeout(_tt);
+  _tt=setTimeout(function(){el.classList.remove('show');},dur);
+}
+function flushQ(store){
+  return dbAll(store).catch(function(){return[];}).then(function(items){
+    var n=0;
+    function next(i){
+      if(i>=items.length) return Promise.resolve(n);
+      return fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(items[i].data)})
+        .then(function(){return dbDel(store,items[i].id);})
+        .then(function(){n++;return next(i+1);})
+        .catch(function(){return n;});
+    }
+    return next(0);
+  });
+}
+function syncAll(){
+  if(!navigator.onLine) return;
+  Promise.all([flushQ('reportQueue'),flushQ('trackQueue')]).then(function(r){
+    var t=r[0]+r[1];
+    if(t>0){showToast('Terkirim '+t+' data!');updateBadge();}
+  });
+}
+window.addEventListener('online',function(){
+  document.getElementById('offline-bar').classList.remove('show');
+  showToast('Jaringan tersambung...',2000);
+  setTimeout(syncAll,1500);
+});
+window.addEventListener('offline',function(){
+  document.getElementById('offline-bar').classList.add('show');
+});
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('./sw.js')
+      .then(function(reg){
+        reg.addEventListener('updatefound',function(){
+          var nw=reg.installing;
+          nw.addEventListener('statechange',function(){
+            if(nw.state==='installed'&&navigator.serviceWorker.controller) showToast('Update tersedia — muat ulang!',5000);
+          });
+        });
+      }).catch(function(){});
+  });
+}
+window.addEventListener('load',function(){
+  if(!navigator.onLine) document.getElementById('offline-bar').classList.add('show');
+  updateBadge();
+  if(navigator.onLine) syncAll();
+});
+</script>
+</body>
+</html>
