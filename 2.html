@@ -449,11 +449,16 @@ var AFD = {
 
 // Koordinat placeholder — ganti dengan koordinat nyata
 // Dibuat sebagai fungsi untuk meminimalkan ukuran, offset grid sederhana
+var COORDS = {
+  'A99a': [-0.XXXXXX, 101.XXXXXX],
+  'A99b': [-0.XXXXXX, 101.XXXXXX],
+  'C00e': [-0.201865, 101.333583],
+  'C03D': [-0.210336, 101.330563],
+  // dst...
+};
 function getCoords(blok) {
-  var base = {
-    'A':[-0.2089,101.3484],'B':[-0.2054,101.3492],
-    'C':[-0.2002,101.3442],'D':[-0.1118,101.3078],'F':[-0.1500,101.3200]
-  };
+  return COORDS[blok] || [-0.2000, 101.3400];
+}
   var prefix = blok[0].toUpperCase();
   var b = base[prefix] || [-0.2000,101.3400];
   // offset kecil berdasarkan index karakter
@@ -944,4 +949,5 @@ window.addEventListener('load',function(){
 });
 </script>
 </body>
+
 </html>
