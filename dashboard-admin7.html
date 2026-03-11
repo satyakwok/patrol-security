@@ -354,9 +354,9 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9gEPXcWDPX-9X
 // Format tiap blok: { id, label, afd, qr, titik: [{no,lat,lng}] }
 const BLOK_CONFIG = [
   // ===== AFDELING 3 =====
-  {id:'C00c',label:'C00C',afd:'3',qr:'PATROL-C00C-2F40',lat:-0.202044,lng:101.343072,titik:[{no:1,lat:-0.203190,lng:101.342905},{no:2,lat:-0.200944,lng:101.342639},{no:3,lat:-0.201899,lng:101.343672}]},
-  {id:'C00e',label:'C00E',afd:'3',qr:'PATROL-C00E-2F42',lat:-0.202173,lng:101.336520,titik:[{no:1,lat:-0.201947,lng:101.333473},{no:2,lat:-0.202285,lng:101.337061},{no:3,lat:-0.202286,lng:101.339025}]},
-  {id:'C03d',label:'C03D',afd:'3',qr:'PATROL-C03D-2F9E',lat:-0.2076,lng:101.3519,titik:[{no:1,lat:-0.213262,lng:101.331077},{no:2,lat:-0.212673,lng:101.331083},{no:3,lat:-0.211031,lng:101.332399}]},
+  {id:'C00c',label:'C00C',afd:'3',qr:'PATROL-C00C-2F40',lat:-0.203190,lng:101.342905,titik:[{no:1,lat:-0.203190,lng:101.342905},{no:2,lat:-0.200944,lng:101.342639},{no:3,lat:-0.201899,lng:101.343672}]},
+  {id:'C00e',label:'C00E',afd:'3',qr:'PATROL-C00E-2F42',lat:-0.201947,lng:101.333473,titik:[{no:1,lat:-0.201947,lng:101.333473},{no:2,lat:-0.202285,lng:101.337061},{no:3,lat:-0.202286,lng:101.339025}]},
+  {id:'C03d',label:'C03D',afd:'3',qr:'PATROL-C03D-2F9E',lat:-0.213262,lng:101.331077,titik:[{no:1,lat:-0.213262,lng:101.331077},{no:2,lat:-0.212673,lng:101.331083},{no:3,lat:-0.211031,lng:101.332399}]},
 ];
 let allReports=[];let filterStatus='all';let maps={};let secMarkers={};let qrGenerated=false;
 let trackingData=[];
@@ -1045,4 +1045,5 @@ function refreshPetaMarkers() {
 
 </script>
 </body>
+
 </html>
