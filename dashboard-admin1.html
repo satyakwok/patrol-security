@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🖥️ Dashboard Admin - Patroli Security</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+:root{
+  --bg:#060810;--surface:#0b1a17;--card:#0F1520;--card2:#131B28;
+  --border:#182030;--accent:#00D4FF;--green:#00FF88;--danger:#FF4444;
+  --warn:#FFB800;--text:#E8F4FF;--muted:#3A5070;--muted2:#5A7090;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.02) 1px,transparent 1px);background-size:50px 50px;pointer-events:none;}
+.topbar{background:linear-gradient(180deg,#0A1220,var(--surface));border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;flex-shrink:0;}
+.topbar-left{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--accent),#005577);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.logo-title{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--accent);letter-spacing:1px;}
+.logo-sub{font-size:10px;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.live-badge{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.25);font-size:12px;color:var(--green);font-weight:600;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.clock-top{font-family:'Rajdhani',sans-serif;font-size:20px;color:var(--accent);font-weight:700;}
+.date-picker-wrap{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:6px 12px;}
+.date-picker-wrap label{font-size:11px;color:var(--muted2);white-space:nowrap;letter-spacing:.5px;text-transform:uppercase;}
+#global-date{background:transparent;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;outline:none;color-scheme:dark;}
+.date-today-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);font-size:11px;cursor:pointer;white-space:nowrap;transition:all .2s;}
+.date-today-btn:hover,.date-today-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.08);}
+.date-filter-label{font-size:11px;color:var(--warn);background:rgba(255,184,0,.1);border:1px solid rgba(255,184,0,.25);border-radius:6px;padding:3px 8px;display:none;}
+.nav-tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto;flex-shrink:0;}
+.nav-tab{padding:14px 20px;border:none;background:transparent;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;display:flex;align-items:center;gap:7px;white-space:nowrap;transition:all .2s;}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-badge{background:var(--danger);color:#fff;border-radius:999px;padding:1px 7px;font-size:10px;font-weight:700;}
+.main{flex:1;padding:20px 24px;overflow-y:auto;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.stat-card.blue::before{background:var(--accent);}
+.stat-card.green::before{background:var(--green);}
+.stat-card.red::before{background:var(--danger);}
+.stat-card.warn::before{background:var(--warn);}
+.stat-label{font-size:11px;color:var(--muted2);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
+.stat-value{font-family:'Rajdhani',sans-serif;font-size:32px;font-weight:700;line-height:1;}
+.stat-card.blue .stat-value{color:var(--accent);}
+.stat-card.green .stat-value{color:var(--green);}
+.stat-card.red .stat-value{color:var(--danger);}
+.stat-card.warn .stat-value{color:var(--warn);}
+.stat-sub{font-size:11px;color:var(--muted2);margin-top:4px;}
+.map-container{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:20px;}
+.map-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.map-title{font-family:'Rajdhani',sans-serif;font-size:18px;color:var(--text);font-weight:700;}
+#live-map{height:380px;background:#0A1520;}
+#live-map-full{height:520px;background:#0A1520;}
+.map-legend{padding:10px 18px;display:flex;gap:14px;flex-wrap:wrap;border-top:1px solid var(--border);}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted2);}
+.legend-dot{width:10px;height:10px;border-radius:50%;}
+.reports-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.reports-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;}
+.filter-group{display:flex;gap:8px;flex-wrap:wrap;}
+.filter-btn{padding:6px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;}
+.filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.08);}
+.report-list{display:flex;flex-direction:column;gap:10px;}
+.report-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:flex-start;gap:14px;transition:border-color .2s;cursor:pointer;}
+.report-card:hover{border-color:var(--muted);}
+.report-card.aman{border-left:3px solid var(--green);}
+.report-card.tidak{border-left:3px solid var(--danger);}
+.report-photo{width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;}
+.report-photo-placeholder{width:56px;height:56px;border-radius:8px;background:var(--card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.report-info{flex:1;min-width:0;}
+.report-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;}
+.report-name{font-weight:600;font-size:15px;}
+.report-badge{padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;}
+.badge-aman{background:rgba(0,255,136,.15);color:var(--green);border:1px solid rgba(0,255,136,.3);}
+.badge-tidak{background:rgba(255,68,68,.15);color:var(--danger);border:1px solid rgba(255,68,68,.3);}
+.report-meta{font-size:12px;color:var(--muted2);display:flex;gap:10px;flex-wrap:wrap;}
+.report-notes{font-size:12px;color:var(--muted2);margin-top:4px;font-style:italic;}
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted2);}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.5;}
+.qr-blok-section{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 20px;margin-bottom:20px;}
+.qr-blok-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+.qr-blok-name{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--text);}
+.qr-blok-afd{font-size:12px;background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.25);color:var(--accent);padding:3px 10px;border-radius:999px;}
+.qr-print-all-btn{margin-left:auto;padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;transition:all .2s;}
+.qr-print-all-btn:hover{border-color:var(--accent);color:var(--accent);}
+.qr-titik-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+@media(max-width:600px){.qr-titik-row{grid-template-columns:1fr;}}
+.qr-grid{display:flex;flex-direction:column;gap:0;}
+.qr-card{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;}
+.qr-card-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;margin-bottom:3px;}
+.qr-card-sub{font-size:11px;color:var(--muted2);margin-bottom:12px;}
+.qr-code-wrap{background:#fff;border-radius:8px;padding:10px;display:inline-flex;margin-bottom:10px;}
+.qr-code-id{font-family:monospace;font-size:9px;color:var(--muted2);word-break:break-all;padding:5px 8px;background:var(--card);border-radius:5px;margin-bottom:6px;}
+.qr-print-btn{padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;width:100%;}
+.qr-print-btn:hover{border-color:var(--accent);color:var(--accent);}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:18px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;}
+.modal-header{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;}
+.modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}
+.modal-body{padding:20px;}
+.modal-photo{width:100%;border-radius:10px;margin-bottom:16px;}
+.modal-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px;}
+.modal-row:last-child{border:none;}
+.modal-key{color:var(--muted2);}
+.modal-val{font-weight:500;}
+.refresh-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;}
+.refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+/* ===== DELETE MODAL ===== */
+.del-modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:3000;display:none;align-items:center;justify-content:center;padding:20px;}
+.del-modal-ov.open{display:flex;}
+.del-modal{background:var(--card);border:1px solid rgba(255,68,68,.3);border-radius:18px;max-width:380px;width:100%;padding:28px 24px;text-align:center;}
+.del-modal-icon{font-size:48px;margin-bottom:12px;}
+.del-modal-title{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--danger);margin-bottom:6px;}
+.del-modal-sub{font-size:13px;color:var(--muted2);margin-bottom:20px;line-height:1.6;}
+.del-pw-input{width:100%;background:var(--card2);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:15px;outline:none;text-align:center;letter-spacing:3px;margin-bottom:8px;font-family:'DM Sans',sans-serif;}
+.del-pw-input:focus{border-color:var(--danger);}
+.del-pw-err{font-size:12px;color:var(--danger);margin-bottom:14px;min-height:18px;}
+.del-btn-row{display:flex;gap:10px;}
+.del-confirm-btn{flex:1;padding:12px;border-radius:10px;border:none;background:var(--danger);color:#fff;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;cursor:pointer;transition:all .2s;}
+.del-confirm-btn:hover{background:#ff2222;}
+.del-cancel-btn{flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;}
+.del-single-btn{padding:5px 10px;border-radius:6px;border:1px solid rgba(255,68,68,.35);background:rgba(255,68,68,.08);color:var(--danger);font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.del-single-btn:hover{background:rgba(255,68,68,.2);}
+.del-all-btn{padding:7px 16px;border-radius:8px;border:1px solid rgba(255,68,68,.35);background:rgba(255,68,68,.08);color:var(--danger);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;}
+.del-all-btn:hover{background:rgba(255,68,68,.2);}
+.tracker-section{margin-bottom:20px;}
+.tracker-map-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:16px;}
+#tracker-map{height:400px;background:#0A1520;}
+.durasi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;}
+.durasi-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;position:relative;overflow:hidden;}
+.durasi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.durasi-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.durasi-nama{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;}
+.durasi-shift-badge{font-size:11px;color:var(--muted2);background:var(--card2);padding:3px 9px;border-radius:20px;border:1px solid var(--border);}
+.durasi-stats-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.durasi-stat-box{background:var(--card2);border-radius:8px;padding:10px;text-align:center;}
+.durasi-stat-num{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;line-height:1;}
+.durasi-stat-lbl{font-size:10px;color:var(--muted2);margin-top:3px;letter-spacing:.5px;text-transform:uppercase;}
+.durasi-info-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted2);margin-bottom:8px;}
+.durasi-bar-bg{background:var(--card2);border-radius:999px;height:5px;overflow:hidden;}
+.durasi-bar-fill{height:5px;border-radius:999px;transition:width .8s ease;}
+.track-point-list{display:flex;flex-direction:column;gap:8px;}
+.track-point-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px;display:flex;align-items:center;gap:12px;}
+.track-point-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.track-point-info{flex:1;min-width:0;}
+.track-point-nama{font-weight:600;font-size:14px;}
+.track-point-meta{font-size:12px;color:var(--muted2);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <img src="asian-agri-logo.png" style="width:50px;height:50px;object-fit:contain;">
+    <div>
+      <div class="logo-title">KEBUN GUNUNG SAHILAN<span style="color:#fff;font-weight:200"></span> <span style="font-size:10px;font-weight:400;color:var(--muted2)">Admin</span></div>
+      <div class="logo-sub">Security Dashboard</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="date-picker-wrap">
+      <label>📅 Tanggal</label>
+      <input type="date" id="global-date" onchange="onDateChange()">
+      <button class="date-today-btn" id="btn-today" onclick="setToday()">Hari ini</button>
+    </div>
+    <span class="date-filter-label" id="date-filter-label">Filter aktif</span>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div class="clock-top" id="clock-top">00:00:00</div>
+  </div>
+</div>
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('overview',this)">📊 Overview</button>
+  <button class="nav-tab" onclick="switchTab('map',this)">🗺️ Live Map</button>
+  <button class="nav-tab" onclick="switchTab('tracker',this)">📡 Live Tracker</button>
+  <button class="nav-tab" onclick="switchTab('reports',this)">📋 Laporan <span class="tab-badge" id="report-count-badge">0</span></button>
+  <button class="nav-tab" onclick="switchTab('qrcodes',this)">🔲 QR Codes</button>
+</div>
+<div class="main">
+  <!-- OVERVIEW -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="stat-grid">
+      <div class="stat-card blue"><div class="stat-label">Total Laporan</div><div class="stat-value" id="stat-total">0</div><div class="stat-sub">Semua waktu</div></div>
+      <div class="stat-card green"><div class="stat-label">Kondisi Aman</div><div class="stat-value" id="stat-aman">0</div><div class="stat-sub">Laporan</div></div>
+      <div class="stat-card red"><div class="stat-label">Tidak Aman</div><div class="stat-value" id="stat-tidak">0</div><div class="stat-sub">⚠️ Perlu tindakan</div></div>
+      <div class="stat-card warn"><div class="stat-label">Petugas Aktif</div><div class="stat-value" id="stat-petugas">0</div><div class="stat-sub">Security on duty</div></div>
+    </div>
+    <div class="map-container">
+      <div class="map-header">
+        <div class="map-title">🗺️ Posisi Terakhir Tim</div>
+        <button class="refresh-btn" onclick="loadData()">🔄 Refresh</button>
+      </div>
+      <div id="live-map"></div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Aman</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>Tidak Aman</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Blok Patroli</div>
+      </div>
+    </div>
+    <div class="reports-header"><div class="reports-title">📋 Laporan Terbaru</div></div>
+    <div class="report-list" id="latest-list"><div class="empty-state"><div class="empty-icon">📭</div><p>Belum ada laporan</p></div></div>
+  </div>
+  <!-- MAP -->
+  <div class="tab-content" id="tab-map">
+    <div class="map-container">
+      <div class="map-header">
+        <div class="map-title">🗺️ Live Tracking Patroli</div>
+        <div style="display:flex;gap:8px"><button class="refresh-btn" onclick="loadData()">🔄 Refresh</button><div class="live-badge"><div class="live-dot"></div>LIVE</div></div>
+      </div>
+      <div id="live-map-full"></div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Aman</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>Tidak Aman</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;"><div class="reports-title" style="margin-bottom:12px;">📍 Riwayat Posisi</div><div class="report-list" id="map-track-list"></div></div>
+  </div>
+  <!-- LIVE TRACKER -->
+  <div class="tab-content" id="tab-tracker">
+    <!-- Peta Tracker -->
+    <div class="tracker-map-wrap">
+      <div class="map-header">
+        <div class="map-title">📡 Live Tracker GPS Patroli</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="refresh-btn" onclick="loadTracking()">🔄 Refresh</button>
+          <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+        </div>
+      </div>
+      <div id="tracker-map"></div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Blok Patroli</div>
+        <div class="legend-item"><div style="width:28px;height:0;border-top:3px dashed #aaa;margin-right:6px;"></div>Jalur Tracking</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Posisi Terakhir</div>
+      </div>
+    </div>
+
+    <!-- Durasi per Petugas -->
+    <div class="tracker-section">
+      <div class="reports-header" style="margin-bottom:12px;">
+        <div class="reports-title">⏱️ Durasi & Monitoring Petugas</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="del-all-btn" onclick="openDeleteModal('all-tracking')">🗑️ Hapus Tracking</button>
+          <span style="font-size:12px;color:var(--muted2);">Data 2 jam terakhir</span>
+        </div>
+      </div>
+      <div class="durasi-grid" id="tracker-durasi">
+        <div class="empty-state"><div class="empty-icon">📡</div><p>Belum ada data tracking</p><p style="font-size:12px;margin-top:6px;">Pastikan Apps Script sudah di-deploy dengan kode terbaru</p></div>
+      </div>
+    </div>
+
+    <!-- List titik tracking -->
+    <div class="tracker-section">
+      <div class="reports-title" style="margin-bottom:12px;">📍 Titik Tracking Terbaru</div>
+      <div class="track-point-list" id="tracker-list">
+        <div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada titik tracking</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="tab-content" id="tab-reports">
+    <div class="reports-header"><div class="reports-title">📋 Semua Laporan</div><div style="display:flex;gap:8px;"><button class="del-all-btn" onclick="openDeleteModal('all-reports')">🗑️ Hapus Semua</button><button class="refresh-btn" onclick="loadData()">🔄 Refresh</button></div></div>
+    <div class="filter-group" style="margin-bottom:16px;">
+      <button class="filter-btn active" onclick="filterReports('all',this)">Semua</button>
+      <button class="filter-btn" onclick="filterReports('AMAN',this)">✅ Aman</button>
+      <button class="filter-btn" onclick="filterReports('TIDAK AMAN',this)">🚨 Tidak Aman</button>
+    </div>
+    <div class="report-list" id="all-reports-list"><div class="empty-state"><div class="empty-icon">📭</div><p>Belum ada laporan</p></div></div>
+  </div>
+  <!-- QR -->
+  <div class="tab-content" id="tab-qrcodes">
+    <div style="margin-bottom:16px;"><div class="reports-title">🔲 QR Code Blok Patroli</div><p style="font-size:13px;color:var(--muted2);margin-top:4px;">Tiap blok memiliki 3 QR Code sesuai titik pantau. Print &amp; tempel di masing-masing titik.</p></div>
+    <div class="filter-group" style="margin-bottom:20px;">
+      <button class="filter-btn active" onclick="filterQR('all',this)">Semua Afdeling</button>
+      <button class="filter-btn" onclick="filterQR('1',this)">Afdeling 1</button>
+      <button class="filter-btn" onclick="filterQR('2',this)">Afdeling 2</button>
+      <button class="filter-btn" onclick="filterQR('3',this)">Afdeling 3</button>
+      <button class="filter-btn" onclick="filterQR('4',this)">Afdeling 4</button>
+      <button class="filter-btn" onclick="filterQR('6',this)">Afdeling 6</button>
+    </div>
+    <div id="qr-grid"></div>
+  </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="del-modal-ov" id="del-modal">
+  <div class="del-modal">
+    <div class="del-modal-icon">🗑️</div>
+    <div class="del-modal-title" id="del-modal-title">Hapus Data</div>
+    <div class="del-modal-sub" id="del-modal-sub">Masukkan password admin untuk melanjutkan.</div>
+    <input class="del-pw-input" type="password" id="del-pw-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')confirmDelete()">
+    <div class="del-pw-err" id="del-pw-err"></div>
+    <div class="del-btn-row">
+      <button class="del-cancel-btn" onclick="closeDeleteModal()">Batal</button>
+      <button class="del-confirm-btn" onclick="confirmDelete()">🗑️ Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header"><div class="modal-title">Detail Laporan</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9gEPXcWDPX-9XylwQlk9Hah0vnQeu6pp4L6inTaklMdgkUj3_Xd2boxVUAQ-Y4YUt2Q/exec';
+// BLOK_CONFIG: struktur per titik pantau (1,2,3)
+// Format tiap blok: { id, label, afd, qr, titik: [{no,lat,lng}] }
+const BLOK_CONFIG = [
+  // ===== AFDELING 1 =====
+  {id:'A99a',label:'A99A',afd:'1',qr:'PATROL-A99A-6960',lat:-0.1800,lng:101.3200,titik:[{no:1,lat:-0.1800,lng:101.3200},{no:2,lat:-0.1802,lng:101.3203},{no:3,lat:-0.1804,lng:101.3206}]},
+  {id:'A99b',label:'A99B',afd:'1',qr:'PATROL-A99B-6961',lat:-0.1802,lng:101.3203,titik:[{no:1,lat:-0.1802,lng:101.3203},{no:2,lat:-0.1804,lng:101.3206},{no:3,lat:-0.1806,lng:101.3209}]},
+  {id:'A99c',label:'A99C',afd:'1',qr:'PATROL-A99C-6962',lat:-0.1804,lng:101.3206,titik:[{no:1,lat:-0.1804,lng:101.3206},{no:2,lat:-0.1806,lng:101.3209},{no:3,lat:-0.1808,lng:101.3212}]},
+  {id:'A99d',label:'A99D',afd:'1',qr:'PATROL-A99D-6963',lat:-0.1806,lng:101.3209,titik:[{no:1,lat:-0.1806,lng:101.3209},{no:2,lat:-0.1808,lng:101.3212},{no:3,lat:-0.1810,lng:101.3215}]},
+  {id:'A99e',label:'A99E',afd:'1',qr:'PATROL-A99E-6964',lat:-0.1808,lng:101.3212,titik:[{no:1,lat:-0.1808,lng:101.3212},{no:2,lat:-0.1810,lng:101.3215},{no:3,lat:-0.1812,lng:101.3218}]},
+  {id:'A99f',label:'A99F',afd:'1',qr:'PATROL-A99F-6965',lat:-0.1810,lng:101.3215,titik:[{no:1,lat:-0.1810,lng:101.3215},{no:2,lat:-0.1812,lng:101.3218},{no:3,lat:-0.1814,lng:101.3221}]},
+  {id:'A99g',label:'A99G',afd:'1',qr:'PATROL-A99G-6966',lat:-0.1812,lng:101.3218,titik:[{no:1,lat:-0.1812,lng:101.3218},{no:2,lat:-0.1814,lng:101.3221},{no:3,lat:-0.1816,lng:101.3224}]},
+  {id:'A99h',label:'A99H',afd:'1',qr:'PATROL-A99H-6967',lat:-0.1814,lng:101.3221,titik:[{no:1,lat:-0.1814,lng:101.3221},{no:2,lat:-0.1816,lng:101.3224},{no:3,lat:-0.1818,lng:101.3227}]},
+  {id:'A99i',label:'A99I',afd:'1',qr:'PATROL-A99I-6968',lat:-0.1816,lng:101.3224,titik:[{no:1,lat:-0.1816,lng:101.3224},{no:2,lat:-0.1818,lng:101.3227},{no:3,lat:-0.1820,lng:101.3230}]},
+  {id:'A99j',label:'A99J',afd:'1',qr:'PATROL-A99J-6969',lat:-0.1818,lng:101.3227,titik:[{no:1,lat:-0.1818,lng:101.3227},{no:2,lat:-0.1820,lng:101.3230},{no:3,lat:-0.1822,lng:101.3233}]},
+  {id:'A99k',label:'A99K',afd:'1',qr:'PATROL-A99K-696A',lat:-0.1820,lng:101.3230,titik:[{no:1,lat:-0.1820,lng:101.3230},{no:2,lat:-0.1822,lng:101.3233},{no:3,lat:-0.1824,lng:101.3236}]},
+  {id:'A99l',label:'A99L',afd:'1',qr:'PATROL-A99L-696B',lat:-0.1822,lng:101.3233,titik:[{no:1,lat:-0.1822,lng:101.3233},{no:2,lat:-0.1824,lng:101.3236},{no:3,lat:-0.1826,lng:101.3239}]},
+  {id:'A99m',label:'A99M',afd:'1',qr:'PATROL-A99M-696C',lat:-0.1824,lng:101.3236,titik:[{no:1,lat:-0.1824,lng:101.3236},{no:2,lat:-0.1826,lng:101.3239},{no:3,lat:-0.1828,lng:101.3242}]},
+  {id:'A99n',label:'A99N',afd:'1',qr:'PATROL-A99N-696D',lat:-0.1826,lng:101.3239,titik:[{no:1,lat:-0.1826,lng:101.3239},{no:2,lat:-0.1828,lng:101.3242},{no:3,lat:-0.1830,lng:101.3245}]},
+  {id:'A99o',label:'A99O',afd:'1',qr:'PATROL-A99O-696E',lat:-0.1828,lng:101.3242,titik:[{no:1,lat:-0.1828,lng:101.3242},{no:2,lat:-0.1830,lng:101.3245},{no:3,lat:-0.1832,lng:101.3248}]},
+  {id:'A99p',label:'A99P',afd:'1',qr:'PATROL-A99P-696F',lat:-0.1830,lng:101.3245,titik:[{no:1,lat:-0.1830,lng:101.3245},{no:2,lat:-0.1832,lng:101.3248},{no:3,lat:-0.1834,lng:101.3251}]},
+  {id:'A99q',label:'A99Q',afd:'1',qr:'PATROL-A99Q-6970',lat:-0.1832,lng:101.3248,titik:[{no:1,lat:-0.1832,lng:101.3248},{no:2,lat:-0.1834,lng:101.3251},{no:3,lat:-0.1836,lng:101.3254}]},
+  {id:'A99r',label:'A99R',afd:'1',qr:'PATROL-A99R-6971',lat:-0.1834,lng:101.3251,titik:[{no:1,lat:-0.1834,lng:101.3251},{no:2,lat:-0.1836,lng:101.3254},{no:3,lat:-0.1838,lng:101.3257}]},
+  {id:'A99s',label:'A99S',afd:'1',qr:'PATROL-A99S-6972',lat:-0.1836,lng:101.3254,titik:[{no:1,lat:-0.1836,lng:101.3254},{no:2,lat:-0.1838,lng:101.3257},{no:3,lat:-0.1840,lng:101.3260}]},
+  {id:'A99t',label:'A99T',afd:'1',qr:'PATROL-A99T-6973',lat:-0.1838,lng:101.3257,titik:[{no:1,lat:-0.1838,lng:101.3257},{no:2,lat:-0.1840,lng:101.3260},{no:3,lat:-0.1842,lng:101.3263}]},
+  {id:'A99u',label:'A99U',afd:'1',qr:'PATROL-A99U-6974',lat:-0.1840,lng:101.3260,titik:[{no:1,lat:-0.1840,lng:101.3260},{no:2,lat:-0.1842,lng:101.3263},{no:3,lat:-0.1844,lng:101.3266}]},
+  {id:'A99v',label:'A99V',afd:'1',qr:'PATROL-A99V-6975',lat:-0.1842,lng:101.3263,titik:[{no:1,lat:-0.1842,lng:101.3263},{no:2,lat:-0.1844,lng:101.3266},{no:3,lat:-0.1846,lng:101.3269}]},
+  {id:'A99w',label:'A99W',afd:'1',qr:'PATROL-A99W-6976',lat:-0.1844,lng:101.3266,titik:[{no:1,lat:-0.1844,lng:101.3266},{no:2,lat:-0.1846,lng:101.3269},{no:3,lat:-0.1848,lng:101.3272}]},
+  {id:'A99x',label:'A99X',afd:'1',qr:'PATROL-A99X-6977',lat:-0.1846,lng:101.3269,titik:[{no:1,lat:-0.1846,lng:101.3269},{no:2,lat:-0.1848,lng:101.3272},{no:3,lat:-0.1850,lng:101.3275}]},
+  {id:'A99y',label:'A99Y',afd:'1',qr:'PATROL-A99Y-6978',lat:-0.1848,lng:101.3272,titik:[{no:1,lat:-0.1848,lng:101.3272},{no:2,lat:-0.1850,lng:101.3275},{no:3,lat:-0.1852,lng:101.3278}]},
+  {id:'A99z',label:'A99Z',afd:'1',qr:'PATROL-A99Z-6979',lat:-0.1850,lng:101.3275,titik:[{no:1,lat:-0.1850,lng:101.3275},{no:2,lat:-0.1852,lng:101.3278},{no:3,lat:-0.1854,lng:101.3281}]},
+  // ===== AFDELING 2 =====
+  {id:'B00a',label:'B00A',afd:'2',qr:'PATROL-B00A-BADF',lat:-0.1900,lng:101.3300,titik:[{no:1,lat:-0.1900,lng:101.3300},{no:2,lat:-0.1902,lng:101.3303},{no:3,lat:-0.1904,lng:101.3306}]},
+  {id:'B00b',label:'B00B',afd:'2',qr:'PATROL-B00B-BAE0',lat:-0.1902,lng:101.3303,titik:[{no:1,lat:-0.1902,lng:101.3303},{no:2,lat:-0.1904,lng:101.3306},{no:3,lat:-0.1906,lng:101.3309}]},
+  {id:'B00c',label:'B00C',afd:'2',qr:'PATROL-B00C-BAE1',lat:-0.1904,lng:101.3306,titik:[{no:1,lat:-0.1904,lng:101.3306},{no:2,lat:-0.1906,lng:101.3309},{no:3,lat:-0.1908,lng:101.3312}]},
+  {id:'B00d',label:'B00D',afd:'2',qr:'PATROL-B00D-BAE2',lat:-0.1906,lng:101.3309,titik:[{no:1,lat:-0.1906,lng:101.3309},{no:2,lat:-0.1908,lng:101.3312},{no:3,lat:-0.1910,lng:101.3315}]},
+  {id:'B00e',label:'B00E',afd:'2',qr:'PATROL-B00E-BAE3',lat:-0.1908,lng:101.3312,titik:[{no:1,lat:-0.1908,lng:101.3312},{no:2,lat:-0.1910,lng:101.3315},{no:3,lat:-0.1912,lng:101.3318}]},
+  {id:'B00f',label:'B00F',afd:'2',qr:'PATROL-B00F-BAE4',lat:-0.1910,lng:101.3315,titik:[{no:1,lat:-0.1910,lng:101.3315},{no:2,lat:-0.1912,lng:101.3318},{no:3,lat:-0.1914,lng:101.3321}]},
+  {id:'B00g',label:'B00G',afd:'2',qr:'PATROL-B00G-BAE5',lat:-0.1912,lng:101.3318,titik:[{no:1,lat:-0.1912,lng:101.3318},{no:2,lat:-0.1914,lng:101.3321},{no:3,lat:-0.1916,lng:101.3324}]},
+  {id:'B00h',label:'B00H',afd:'2',qr:'PATROL-B00H-BAE6',lat:-0.1914,lng:101.3321,titik:[{no:1,lat:-0.1914,lng:101.3321},{no:2,lat:-0.1916,lng:101.3324},{no:3,lat:-0.1918,lng:101.3327}]},
+  {id:'B00i',label:'B00I',afd:'2',qr:'PATROL-B00I-BAE7',lat:-0.1916,lng:101.3324,titik:[{no:1,lat:-0.1916,lng:101.3324},{no:2,lat:-0.1918,lng:101.3327},{no:3,lat:-0.1920,lng:101.3330}]},
+  {id:'B00j',label:'B00J',afd:'2',qr:'PATROL-B00J-BAE8',lat:-0.1918,lng:101.3327,titik:[{no:1,lat:-0.1918,lng:101.3327},{no:2,lat:-0.1920,lng:101.3330},{no:3,lat:-0.1922,lng:101.3333}]},
+  {id:'B00k',label:'B00K',afd:'2',qr:'PATROL-B00K-BAE9',lat:-0.1920,lng:101.3330,titik:[{no:1,lat:-0.1920,lng:101.3330},{no:2,lat:-0.1922,lng:101.3333},{no:3,lat:-0.1924,lng:101.3336}]},
+  {id:'B00l',label:'B00L',afd:'2',qr:'PATROL-B00L-BAEA',lat:-0.1922,lng:101.3333,titik:[{no:1,lat:-0.1922,lng:101.3333},{no:2,lat:-0.1924,lng:101.3336},{no:3,lat:-0.1926,lng:101.3339}]},
+  {id:'B00m',label:'B00M',afd:'2',qr:'PATROL-B00M-BAEB',lat:-0.1924,lng:101.3336,titik:[{no:1,lat:-0.1924,lng:101.3336},{no:2,lat:-0.1926,lng:101.3339},{no:3,lat:-0.1928,lng:101.3342}]},
+  {id:'B00n',label:'B00N',afd:'2',qr:'PATROL-B00N-BAEC',lat:-0.1926,lng:101.3339,titik:[{no:1,lat:-0.1926,lng:101.3339},{no:2,lat:-0.1928,lng:101.3342},{no:3,lat:-0.1930,lng:101.3345}]},
+  {id:'B00o',label:'B00O',afd:'2',qr:'PATROL-B00O-BAED',lat:-0.1928,lng:101.3342,titik:[{no:1,lat:-0.1928,lng:101.3342},{no:2,lat:-0.1930,lng:101.3345},{no:3,lat:-0.1932,lng:101.3348}]},
+  {id:'B00p',label:'B00P',afd:'2',qr:'PATROL-B00P-BAEE',lat:-0.1930,lng:101.3345,titik:[{no:1,lat:-0.1930,lng:101.3345},{no:2,lat:-0.1932,lng:101.3348},{no:3,lat:-0.1934,lng:101.3351}]},
+  {id:'B00q',label:'B00Q',afd:'2',qr:'PATROL-B00Q-BAEF',lat:-0.1932,lng:101.3348,titik:[{no:1,lat:-0.1932,lng:101.3348},{no:2,lat:-0.1934,lng:101.3351},{no:3,lat:-0.1936,lng:101.3354}]},
+  {id:'B00r',label:'B00R',afd:'2',qr:'PATROL-B00R-BAF0',lat:-0.1934,lng:101.3351,titik:[{no:1,lat:-0.1934,lng:101.3351},{no:2,lat:-0.1936,lng:101.3354},{no:3,lat:-0.1938,lng:101.3357}]},
+  {id:'B00s',label:'B00S',afd:'2',qr:'PATROL-B00S-BAF1',lat:-0.1936,lng:101.3354,titik:[{no:1,lat:-0.1936,lng:101.3354},{no:2,lat:-0.1938,lng:101.3357},{no:3,lat:-0.1940,lng:101.3360}]},
+  {id:'B00t',label:'B00T',afd:'2',qr:'PATROL-B00T-BAF2',lat:-0.1938,lng:101.3357,titik:[{no:1,lat:-0.1938,lng:101.3357},{no:2,lat:-0.1940,lng:101.3360},{no:3,lat:-0.1942,lng:101.3363}]},
+  {id:'B00u',label:'B00U',afd:'2',qr:'PATROL-B00U-BAF3',lat:-0.1940,lng:101.3360,titik:[{no:1,lat:-0.1940,lng:101.3360},{no:2,lat:-0.1942,lng:101.3363},{no:3,lat:-0.1944,lng:101.3366}]},
+  {id:'B00v',label:'B00V',afd:'2',qr:'PATROL-B00V-BAF4',lat:-0.1942,lng:101.3363,titik:[{no:1,lat:-0.1942,lng:101.3363},{no:2,lat:-0.1944,lng:101.3366},{no:3,lat:-0.1946,lng:101.3369}]},
+  {id:'B00w',label:'B00W',afd:'2',qr:'PATROL-B00W-BAF5',lat:-0.1944,lng:101.3366,titik:[{no:1,lat:-0.1944,lng:101.3366},{no:2,lat:-0.1946,lng:101.3369},{no:3,lat:-0.1948,lng:101.3372}]},
+  {id:'B00x',label:'B00X',afd:'2',qr:'PATROL-B00X-BAF6',lat:-0.1946,lng:101.3369,titik:[{no:1,lat:-0.1946,lng:101.3369},{no:2,lat:-0.1948,lng:101.3372},{no:3,lat:-0.1950,lng:101.3375}]},
+  {id:'B00y',label:'B00Y',afd:'2',qr:'PATROL-B00Y-BAF7',lat:-0.1948,lng:101.3372,titik:[{no:1,lat:-0.1948,lng:101.3372},{no:2,lat:-0.1950,lng:101.3375},{no:3,lat:-0.1952,lng:101.3378}]},
+  {id:'B01a',label:'B01A',afd:'2',qr:'PATROL-B01A-BAFE',lat:-0.1960,lng:101.3390,titik:[{no:1,lat:-0.1960,lng:101.3390},{no:2,lat:-0.1962,lng:101.3393},{no:3,lat:-0.1964,lng:101.3396}]},
+  {id:'B01b',label:'B01B',afd:'2',qr:'PATROL-B01B-BAFF',lat:-0.1962,lng:101.3393,titik:[{no:1,lat:-0.1962,lng:101.3393},{no:2,lat:-0.1964,lng:101.3396},{no:3,lat:-0.1966,lng:101.3399}]},
+  {id:'B01c',label:'B01C',afd:'2',qr:'PATROL-B01C-BB00',lat:-0.1964,lng:101.3396,titik:[{no:1,lat:-0.1964,lng:101.3396},{no:2,lat:-0.1966,lng:101.3399},{no:3,lat:-0.1968,lng:101.3402}]},
+  {id:'B01d',label:'B01D',afd:'2',qr:'PATROL-B01D-BB01',lat:-0.1966,lng:101.3399,titik:[{no:1,lat:-0.1966,lng:101.3399},{no:2,lat:-0.1968,lng:101.3402},{no:3,lat:-0.1970,lng:101.3405}]},
+  {id:'B01e',label:'B01E',afd:'2',qr:'PATROL-B01E-BB02',lat:-0.1968,lng:101.3402,titik:[{no:1,lat:-0.1968,lng:101.3402},{no:2,lat:-0.1970,lng:101.3405},{no:3,lat:-0.1972,lng:101.3408}]},
+  {id:'B01f',label:'B01F',afd:'2',qr:'PATROL-B01F-BB03',lat:-0.1970,lng:101.3405,titik:[{no:1,lat:-0.1970,lng:101.3405},{no:2,lat:-0.1972,lng:101.3408},{no:3,lat:-0.1974,lng:101.3411}]},
+  {id:'B03a',label:'B03A',afd:'2',qr:'PATROL-B03A-BB3C',lat:-0.1980,lng:101.3420,titik:[{no:1,lat:-0.1980,lng:101.3420},{no:2,lat:-0.1982,lng:101.3423},{no:3,lat:-0.1984,lng:101.3426}]},
+  {id:'B03b',label:'B03B',afd:'2',qr:'PATROL-B03B-BB3D',lat:-0.1982,lng:101.3423,titik:[{no:1,lat:-0.1982,lng:101.3423},{no:2,lat:-0.1984,lng:101.3426},{no:3,lat:-0.1986,lng:101.3429}]},
+  {id:'B04a',label:'B04A',afd:'2',qr:'PATROL-B04A-BB5B',lat:-0.1990,lng:101.3440,titik:[{no:1,lat:-0.1990,lng:101.3440},{no:2,lat:-0.1992,lng:101.3443},{no:3,lat:-0.1994,lng:101.3446}]},
+  {id:'B04b',label:'B04B',afd:'2',qr:'PATROL-B04B-BB5C',lat:-0.1992,lng:101.3443,titik:[{no:1,lat:-0.1992,lng:101.3443},{no:2,lat:-0.1994,lng:101.3446},{no:3,lat:-0.1996,lng:101.3449}]},
+  {id:'B04c',label:'B04C',afd:'2',qr:'PATROL-B04C-BB5D',lat:-0.1994,lng:101.3446,titik:[{no:1,lat:-0.1994,lng:101.3446},{no:2,lat:-0.1996,lng:101.3449},{no:3,lat:-0.1998,lng:101.3452}]},
+  {id:'B04d',label:'B04D',afd:'2',qr:'PATROL-B04D-BB5E',lat:-0.1996,lng:101.3449,titik:[{no:1,lat:-0.1996,lng:101.3449},{no:2,lat:-0.1998,lng:101.3452},{no:3,lat:-0.2000,lng:101.3455}]},
+  {id:'B04e',label:'B04E',afd:'2',qr:'PATROL-B04E-BB5F',lat:-0.1998,lng:101.3452,titik:[{no:1,lat:-0.1998,lng:101.3452},{no:2,lat:-0.2000,lng:101.3455},{no:3,lat:-0.2002,lng:101.3458}]},
+  {id:'B10a',label:'B10A',afd:'2',qr:'PATROL-B10A-BEA0',lat:-0.2010,lng:101.3500,titik:[{no:1,lat:-0.2010,lng:101.3500},{no:2,lat:-0.2012,lng:101.3503},{no:3,lat:-0.2014,lng:101.3506}]},
+  // ===== AFDELING 3 =====
+  {id:'C00a',label:'C00A',afd:'3',qr:'PATROL-C00A-2F3E',lat:-0.2000,lng:101.3400,titik:[{no:1,lat:-0.2000,lng:101.3400},{no:2,lat:-0.2002,lng:101.3403},{no:3,lat:-0.2004,lng:101.3406}]},
+  {id:'C00b',label:'C00B',afd:'3',qr:'PATROL-C00B-2F3F',lat:-0.2002,lng:101.3403,titik:[{no:1,lat:-0.2002,lng:101.3403},{no:2,lat:-0.2004,lng:101.3406},{no:3,lat:-0.2006,lng:101.3409}]},
+  {id:'C00c',label:'C00C',afd:'3',qr:'PATROL-C00C-2F40',lat:-0.202044,lng:101.343072,titik:[{no:1,lat:-0.203190,lng:101.342905},{no:2,lat:-0.200944,lng:101.342639},{no:3,lat:-0.201899,lng:101.343672}]},
+  {id:'C00d',label:'C00D',afd:'3',qr:'PATROL-C00D-2F41',lat:-0.2006,lng:101.3409,titik:[{no:1,lat:-0.2006,lng:101.3409},{no:2,lat:-0.2008,lng:101.3412},{no:3,lat:-0.2010,lng:101.3415}]},
+  {id:'C00e',label:'C00E',afd:'3',qr:'PATROL-C00E-2F42',lat:-0.202173,lng:101.336520,titik:[{no:1,lat:-0.201947,lng:101.333473},{no:2,lat:-0.202285,lng:101.337061},{no:3,lat:-0.202286,lng:101.339025}]},
+  {id:'C00f',label:'C00F',afd:'3',qr:'PATROL-C00F-2F43',lat:-0.2012,lng:101.3418,titik:[{no:1,lat:-0.2012,lng:101.3418},{no:2,lat:-0.2014,lng:101.3421},{no:3,lat:-0.2016,lng:101.3424}]},
+  {id:'C00g',label:'C00G',afd:'3',qr:'PATROL-C00G-2F44',lat:-0.2014,lng:101.3421,titik:[{no:1,lat:-0.2014,lng:101.3421},{no:2,lat:-0.2016,lng:101.3424},{no:3,lat:-0.2018,lng:101.3427}]},
+  {id:'C00h',label:'C00H',afd:'3',qr:'PATROL-C00H-2F45',lat:-0.2016,lng:101.3424,titik:[{no:1,lat:-0.2016,lng:101.3424},{no:2,lat:-0.2018,lng:101.3427},{no:3,lat:-0.2020,lng:101.3430}]},
+  {id:'C00i',label:'C00I',afd:'3',qr:'PATROL-C00I-2F46',lat:-0.2018,lng:101.3427,titik:[{no:1,lat:-0.2018,lng:101.3427},{no:2,lat:-0.2020,lng:101.3430},{no:3,lat:-0.2022,lng:101.3433}]},
+  {id:'C00j',label:'C00J',afd:'3',qr:'PATROL-C00J-2F47',lat:-0.2020,lng:101.3430,titik:[{no:1,lat:-0.2020,lng:101.3430},{no:2,lat:-0.2022,lng:101.3433},{no:3,lat:-0.2024,lng:101.3436}]},
+  {id:'C00k',label:'C00K',afd:'3',qr:'PATROL-C00K-2F48',lat:-0.2022,lng:101.3433,titik:[{no:1,lat:-0.2022,lng:101.3433},{no:2,lat:-0.2024,lng:101.3436},{no:3,lat:-0.2026,lng:101.3439}]},
+  {id:'C00l',label:'C00L',afd:'3',qr:'PATROL-C00L-2F49',lat:-0.2024,lng:101.3436,titik:[{no:1,lat:-0.2024,lng:101.3436},{no:2,lat:-0.2026,lng:101.3439},{no:3,lat:-0.2028,lng:101.3442}]},
+  {id:'C00m',label:'C00M',afd:'3',qr:'PATROL-C00M-2F4A',lat:-0.2026,lng:101.3439,titik:[{no:1,lat:-0.2026,lng:101.3439},{no:2,lat:-0.2028,lng:101.3442},{no:3,lat:-0.2030,lng:101.3445}]},
+  {id:'C00n',label:'C00N',afd:'3',qr:'PATROL-C00N-2F4B',lat:-0.2028,lng:101.3442,titik:[{no:1,lat:-0.2028,lng:101.3442},{no:2,lat:-0.2030,lng:101.3445},{no:3,lat:-0.2032,lng:101.3448}]},
+  {id:'C00o',label:'C00O',afd:'3',qr:'PATROL-C00O-2F4C',lat:-0.2030,lng:101.3445,titik:[{no:1,lat:-0.2030,lng:101.3445},{no:2,lat:-0.2032,lng:101.3448},{no:3,lat:-0.2034,lng:101.3451}]},
+  {id:'C00p',label:'C00P',afd:'3',qr:'PATROL-C00P-2F4D',lat:-0.2032,lng:101.3448,titik:[{no:1,lat:-0.2032,lng:101.3448},{no:2,lat:-0.2034,lng:101.3451},{no:3,lat:-0.2036,lng:101.3454}]},
+  {id:'C00q',label:'C00Q',afd:'3',qr:'PATROL-C00Q-2F4E',lat:-0.2034,lng:101.3451,titik:[{no:1,lat:-0.2034,lng:101.3451},{no:2,lat:-0.2036,lng:101.3454},{no:3,lat:-0.2038,lng:101.3457}]},
+  {id:'C01a',label:'C01A',afd:'3',qr:'PATROL-C01A-2F5D',lat:-0.2040,lng:101.3460,titik:[{no:1,lat:-0.2040,lng:101.3460},{no:2,lat:-0.2042,lng:101.3463},{no:3,lat:-0.2044,lng:101.3466}]},
+  {id:'C01b',label:'C01B',afd:'3',qr:'PATROL-C01B-2F5E',lat:-0.2042,lng:101.3463,titik:[{no:1,lat:-0.2042,lng:101.3463},{no:2,lat:-0.2044,lng:101.3466},{no:3,lat:-0.2046,lng:101.3469}]},
+  {id:'C01c',label:'C01C',afd:'3',qr:'PATROL-C01C-2F5F',lat:-0.2044,lng:101.3466,titik:[{no:1,lat:-0.2044,lng:101.3466},{no:2,lat:-0.2046,lng:101.3469},{no:3,lat:-0.2048,lng:101.3472}]},
+  {id:'C01d',label:'C01D',afd:'3',qr:'PATROL-C01D-2F60',lat:-0.2046,lng:101.3469,titik:[{no:1,lat:-0.2046,lng:101.3469},{no:2,lat:-0.2048,lng:101.3472},{no:3,lat:-0.2050,lng:101.3475}]},
+  {id:'C01e',label:'C01E',afd:'3',qr:'PATROL-C01E-2F61',lat:-0.2048,lng:101.3472,titik:[{no:1,lat:-0.2048,lng:101.3472},{no:2,lat:-0.2050,lng:101.3475},{no:3,lat:-0.2052,lng:101.3478}]},
+  {id:'C01f',label:'C01F',afd:'3',qr:'PATROL-C01F-2F62',lat:-0.2050,lng:101.3475,titik:[{no:1,lat:-0.2050,lng:101.3475},{no:2,lat:-0.2052,lng:101.3478},{no:3,lat:-0.2054,lng:101.3481}]},
+  {id:'C01g',label:'C01G',afd:'3',qr:'PATROL-C01G-2F63',lat:-0.2052,lng:101.3478,titik:[{no:1,lat:-0.2052,lng:101.3478},{no:2,lat:-0.2054,lng:101.3481},{no:3,lat:-0.2056,lng:101.3484}]},
+  {id:'C01h',label:'C01H',afd:'3',qr:'PATROL-C01H-2F64',lat:-0.2054,lng:101.3481,titik:[{no:1,lat:-0.2054,lng:101.3481},{no:2,lat:-0.2056,lng:101.3484},{no:3,lat:-0.2058,lng:101.3487}]},
+  {id:'C01i',label:'C01I',afd:'3',qr:'PATROL-C01I-2F65',lat:-0.2056,lng:101.3484,titik:[{no:1,lat:-0.2056,lng:101.3484},{no:2,lat:-0.2058,lng:101.3487},{no:3,lat:-0.2060,lng:101.3490}]},
+  {id:'C01j',label:'C01J',afd:'3',qr:'PATROL-C01J-2F66',lat:-0.2058,lng:101.3487,titik:[{no:1,lat:-0.2058,lng:101.3487},{no:2,lat:-0.2060,lng:101.3490},{no:3,lat:-0.2062,lng:101.3493}]},
+  {id:'C01k',label:'C01K',afd:'3',qr:'PATROL-C01K-2F67',lat:-0.2060,lng:101.3490,titik:[{no:1,lat:-0.2060,lng:101.3490},{no:2,lat:-0.2062,lng:101.3493},{no:3,lat:-0.2064,lng:101.3496}]},
+  {id:'C01l',label:'C01L',afd:'3',qr:'PATROL-C01L-2F68',lat:-0.2062,lng:101.3493,titik:[{no:1,lat:-0.2062,lng:101.3493},{no:2,lat:-0.2064,lng:101.3496},{no:3,lat:-0.2066,lng:101.3499}]},
+  {id:'C01m',label:'C01M',afd:'3',qr:'PATROL-C01M-2F69',lat:-0.2064,lng:101.3496,titik:[{no:1,lat:-0.2064,lng:101.3496},{no:2,lat:-0.2066,lng:101.3499},{no:3,lat:-0.2068,lng:101.3502}]},
+  {id:'C03a',label:'C03A',afd:'3',qr:'PATROL-C03A-2F9B',lat:-0.2070,lng:101.3510,titik:[{no:1,lat:-0.2070,lng:101.3510},{no:2,lat:-0.2072,lng:101.3513},{no:3,lat:-0.2074,lng:101.3516}]},
+  {id:'C03b',label:'C03B',afd:'3',qr:'PATROL-C03B-2F9C',lat:-0.2072,lng:101.3513,titik:[{no:1,lat:-0.2072,lng:101.3513},{no:2,lat:-0.2074,lng:101.3516},{no:3,lat:-0.2076,lng:101.3519}]},
+  {id:'C03c',label:'C03C',afd:'3',qr:'PATROL-C03C-2F9D',lat:-0.2074,lng:101.3516,titik:[{no:1,lat:-0.2074,lng:101.3516},{no:2,lat:-0.2076,lng:101.3519},{no:3,lat:-0.2078,lng:101.3522}]},
+  {id:'C03d',label:'C03D',afd:'3',qr:'PATROL-C03D-2F9E',lat:-0.2076,lng:101.3519,titik:[{no:1,lat:-0.2076,lng:101.3519},{no:2,lat:-0.2078,lng:101.3522},{no:3,lat:-0.2080,lng:101.3525}]},
+  {id:'C03e',label:'C03E',afd:'3',qr:'PATROL-C03E-2F9F',lat:-0.2078,lng:101.3522,titik:[{no:1,lat:-0.2078,lng:101.3522},{no:2,lat:-0.2080,lng:101.3525},{no:3,lat:-0.2082,lng:101.3528}]},
+  {id:'C03f',label:'C03F',afd:'3',qr:'PATROL-C03F-2FA0',lat:-0.2080,lng:101.3525,titik:[{no:1,lat:-0.2080,lng:101.3525},{no:2,lat:-0.2082,lng:101.3528},{no:3,lat:-0.2084,lng:101.3531}]},
+  {id:'C03g',label:'C03G',afd:'3',qr:'PATROL-C03G-2FA1',lat:-0.2082,lng:101.3528,titik:[{no:1,lat:-0.2082,lng:101.3528},{no:2,lat:-0.2084,lng:101.3531},{no:3,lat:-0.2086,lng:101.3534}]},
+  {id:'C05a',label:'C05A',afd:'3',qr:'PATROL-C05A-2FD9',lat:-0.2090,lng:101.3540,titik:[{no:1,lat:-0.2090,lng:101.3540},{no:2,lat:-0.2092,lng:101.3543},{no:3,lat:-0.2094,lng:101.3546}]},
+  {id:'C05b',label:'C05B',afd:'3',qr:'PATROL-C05B-2FDA',lat:-0.2092,lng:101.3543,titik:[{no:1,lat:-0.2092,lng:101.3543},{no:2,lat:-0.2094,lng:101.3546},{no:3,lat:-0.2096,lng:101.3549}]},
+  {id:'C05c',label:'C05C',afd:'3',qr:'PATROL-C05C-2FDB',lat:-0.2094,lng:101.3546,titik:[{no:1,lat:-0.2094,lng:101.3546},{no:2,lat:-0.2096,lng:101.3549},{no:3,lat:-0.2098,lng:101.3552}]},
+  {id:'C07a',label:'C07A',afd:'3',qr:'PATROL-C07A-3017',lat:-0.2100,lng:101.3560,titik:[{no:1,lat:-0.2100,lng:101.3560},{no:2,lat:-0.2102,lng:101.3563},{no:3,lat:-0.2104,lng:101.3566}]},
+  {id:'C07b',label:'C07B',afd:'3',qr:'PATROL-C07B-3018',lat:-0.2102,lng:101.3563,titik:[{no:1,lat:-0.2102,lng:101.3563},{no:2,lat:-0.2104,lng:101.3566},{no:3,lat:-0.2106,lng:101.3569}]},
+  {id:'C07c',label:'C07C',afd:'3',qr:'PATROL-C07C-3019',lat:-0.2104,lng:101.3566,titik:[{no:1,lat:-0.2104,lng:101.3566},{no:2,lat:-0.2106,lng:101.3569},{no:3,lat:-0.2108,lng:101.3572}]},
+  {id:'C08a',label:'C08A',afd:'3',qr:'PATROL-C08A-3036',lat:-0.2110,lng:101.3580,titik:[{no:1,lat:-0.2110,lng:101.3580},{no:2,lat:-0.2112,lng:101.3583},{no:3,lat:-0.2114,lng:101.3586}]},
+  // ===== AFDELING 4 =====
+  {id:'D00a',label:'D00A',afd:'4',qr:'PATROL-D00A-A39D',lat:-0.2100,lng:101.3500,titik:[{no:1,lat:-0.2100,lng:101.3500},{no:2,lat:-0.2102,lng:101.3503},{no:3,lat:-0.2104,lng:101.3506}]},
+  {id:'D00b',label:'D00B',afd:'4',qr:'PATROL-D00B-A39E',lat:-0.2102,lng:101.3503,titik:[{no:1,lat:-0.2102,lng:101.3503},{no:2,lat:-0.2104,lng:101.3506},{no:3,lat:-0.2106,lng:101.3509}]},
+  {id:'D00c',label:'D00C',afd:'4',qr:'PATROL-D00C-A39F',lat:-0.2104,lng:101.3506,titik:[{no:1,lat:-0.2104,lng:101.3506},{no:2,lat:-0.2106,lng:101.3509},{no:3,lat:-0.2108,lng:101.3512}]},
+  {id:'D00d',label:'D00D',afd:'4',qr:'PATROL-D00D-A3A0',lat:-0.2106,lng:101.3509,titik:[{no:1,lat:-0.2106,lng:101.3509},{no:2,lat:-0.2108,lng:101.3512},{no:3,lat:-0.2110,lng:101.3515}]},
+  {id:'D00e',label:'D00E',afd:'4',qr:'PATROL-D00E-A3A1',lat:-0.2108,lng:101.3512,titik:[{no:1,lat:-0.2108,lng:101.3512},{no:2,lat:-0.2110,lng:101.3515},{no:3,lat:-0.2112,lng:101.3518}]},
+  {id:'D00f',label:'D00F',afd:'4',qr:'PATROL-D00F-A3A2',lat:-0.2110,lng:101.3515,titik:[{no:1,lat:-0.2110,lng:101.3515},{no:2,lat:-0.2112,lng:101.3518},{no:3,lat:-0.2114,lng:101.3521}]},
+  {id:'D00g',label:'D00G',afd:'4',qr:'PATROL-D00G-A3A3',lat:-0.2112,lng:101.3518,titik:[{no:1,lat:-0.2112,lng:101.3518},{no:2,lat:-0.2114,lng:101.3521},{no:3,lat:-0.2116,lng:101.3524}]},
+  {id:'D00h',label:'D00H',afd:'4',qr:'PATROL-D00H-A3A4',lat:-0.2114,lng:101.3521,titik:[{no:1,lat:-0.2114,lng:101.3521},{no:2,lat:-0.2116,lng:101.3524},{no:3,lat:-0.2118,lng:101.3527}]},
+  {id:'D00i',label:'D00I',afd:'4',qr:'PATROL-D00I-A3A5',lat:-0.2116,lng:101.3524,titik:[{no:1,lat:-0.2116,lng:101.3524},{no:2,lat:-0.2118,lng:101.3527},{no:3,lat:-0.2120,lng:101.3530}]},
+  {id:'D00j',label:'D00J',afd:'4',qr:'PATROL-D00J-A3A6',lat:-0.2118,lng:101.3527,titik:[{no:1,lat:-0.2118,lng:101.3527},{no:2,lat:-0.2120,lng:101.3530},{no:3,lat:-0.2122,lng:101.3533}]},
+  {id:'D00k',label:'D00K',afd:'4',qr:'PATROL-D00K-A3A7',lat:-0.2120,lng:101.3530,titik:[{no:1,lat:-0.2120,lng:101.3530},{no:2,lat:-0.2122,lng:101.3533},{no:3,lat:-0.2124,lng:101.3536}]},
+  {id:'D00l',label:'D00L',afd:'4',qr:'PATROL-D00L-A3A8',lat:-0.2122,lng:101.3533,titik:[{no:1,lat:-0.2122,lng:101.3533},{no:2,lat:-0.2124,lng:101.3536},{no:3,lat:-0.2126,lng:101.3539}]},
+  {id:'D00m',label:'D00M',afd:'4',qr:'PATROL-D00M-A3A9',lat:-0.2124,lng:101.3536,titik:[{no:1,lat:-0.2124,lng:101.3536},{no:2,lat:-0.2126,lng:101.3539},{no:3,lat:-0.2128,lng:101.3542}]},
+  {id:'D00n',label:'D00N',afd:'4',qr:'PATROL-D00N-A3AA',lat:-0.2126,lng:101.3539,titik:[{no:1,lat:-0.2126,lng:101.3539},{no:2,lat:-0.2128,lng:101.3542},{no:3,lat:-0.2130,lng:101.3545}]},
+  {id:'D01a',label:'D01A',afd:'4',qr:'PATROL-D01A-A3BC',lat:-0.2140,lng:101.3560,titik:[{no:1,lat:-0.2140,lng:101.3560},{no:2,lat:-0.2142,lng:101.3563},{no:3,lat:-0.2144,lng:101.3566}]},
+  {id:'D01b',label:'D01B',afd:'4',qr:'PATROL-D01B-A3BD',lat:-0.2142,lng:101.3563,titik:[{no:1,lat:-0.2142,lng:101.3563},{no:2,lat:-0.2144,lng:101.3566},{no:3,lat:-0.2146,lng:101.3569}]},
+  {id:'D01c',label:'D01C',afd:'4',qr:'PATROL-D01C-A3BE',lat:-0.2144,lng:101.3566,titik:[{no:1,lat:-0.2144,lng:101.3566},{no:2,lat:-0.2146,lng:101.3569},{no:3,lat:-0.2148,lng:101.3572}]},
+  {id:'D01d',label:'D01D',afd:'4',qr:'PATROL-D01D-A3BF',lat:-0.2146,lng:101.3569,titik:[{no:1,lat:-0.2146,lng:101.3569},{no:2,lat:-0.2148,lng:101.3572},{no:3,lat:-0.2150,lng:101.3575}]},
+  {id:'D01e',label:'D01E',afd:'4',qr:'PATROL-D01E-A3C0',lat:-0.2148,lng:101.3572,titik:[{no:1,lat:-0.2148,lng:101.3572},{no:2,lat:-0.2150,lng:101.3575},{no:3,lat:-0.2152,lng:101.3578}]},
+  {id:'D01f',label:'D01F',afd:'4',qr:'PATROL-D01F-A3C1',lat:-0.2150,lng:101.3575,titik:[{no:1,lat:-0.2150,lng:101.3575},{no:2,lat:-0.2152,lng:101.3578},{no:3,lat:-0.2154,lng:101.3581}]},
+  {id:'D01g',label:'D01G',afd:'4',qr:'PATROL-D01G-A3C2',lat:-0.2152,lng:101.3578,titik:[{no:1,lat:-0.2152,lng:101.3578},{no:2,lat:-0.2154,lng:101.3581},{no:3,lat:-0.2156,lng:101.3584}]},
+  {id:'D01h',label:'D01H',afd:'4',qr:'PATROL-D01H-A3C3',lat:-0.2154,lng:101.3581,titik:[{no:1,lat:-0.2154,lng:101.3581},{no:2,lat:-0.2156,lng:101.3584},{no:3,lat:-0.2158,lng:101.3587}]},
+  {id:'D01i',label:'D01I',afd:'4',qr:'PATROL-D01I-A3C4',lat:-0.2156,lng:101.3584,titik:[{no:1,lat:-0.2156,lng:101.3584},{no:2,lat:-0.2158,lng:101.3587},{no:3,lat:-0.2160,lng:101.3590}]},
+  {id:'D01j',label:'D01J',afd:'4',qr:'PATROL-D01J-A3C5',lat:-0.2158,lng:101.3587,titik:[{no:1,lat:-0.2158,lng:101.3587},{no:2,lat:-0.2160,lng:101.3590},{no:3,lat:-0.2162,lng:101.3593}]},
+  {id:'D01k',label:'D01K',afd:'4',qr:'PATROL-D01K-A3C6',lat:-0.2160,lng:101.3590,titik:[{no:1,lat:-0.2160,lng:101.3590},{no:2,lat:-0.2162,lng:101.3593},{no:3,lat:-0.2164,lng:101.3596}]},
+  {id:'D01l',label:'D01L',afd:'4',qr:'PATROL-D01L-A3C7',lat:-0.2162,lng:101.3593,titik:[{no:1,lat:-0.2162,lng:101.3593},{no:2,lat:-0.2164,lng:101.3596},{no:3,lat:-0.2166,lng:101.3599}]},
+  {id:'D01m',label:'D01M',afd:'4',qr:'PATROL-D01M-A3C8',lat:-0.2164,lng:101.3596,titik:[{no:1,lat:-0.2164,lng:101.3596},{no:2,lat:-0.2166,lng:101.3599},{no:3,lat:-0.2168,lng:101.3602}]},
+  {id:'D01n',label:'D01N',afd:'4',qr:'PATROL-D01N-A3C9',lat:-0.2166,lng:101.3599,titik:[{no:1,lat:-0.2166,lng:101.3599},{no:2,lat:-0.2168,lng:101.3602},{no:3,lat:-0.2170,lng:101.3605}]},
+  {id:'D03a',label:'D03A',afd:'4',qr:'PATROL-D03A-A3FA',lat:-0.2180,lng:101.3620,titik:[{no:1,lat:-0.2180,lng:101.3620},{no:2,lat:-0.2182,lng:101.3623},{no:3,lat:-0.2184,lng:101.3626}]},
+  {id:'D03b',label:'D03B',afd:'4',qr:'PATROL-D03B-A3FB',lat:-0.2182,lng:101.3623,titik:[{no:1,lat:-0.2182,lng:101.3623},{no:2,lat:-0.2184,lng:101.3626},{no:3,lat:-0.2186,lng:101.3629}]},
+  // ===== AFDELING 6 =====
+  {id:'F06a',label:'F06A',afd:'6',qr:'PATROL-F06A-8D15',lat:-0.2200,lng:101.3600,titik:[{no:1,lat:-0.2200,lng:101.3600},{no:2,lat:-0.2202,lng:101.3603},{no:3,lat:-0.2204,lng:101.3606}]},
+  {id:'F06b',label:'F06B',afd:'6',qr:'PATROL-F06B-8D16',lat:-0.2202,lng:101.3603,titik:[{no:1,lat:-0.2202,lng:101.3603},{no:2,lat:-0.2204,lng:101.3606},{no:3,lat:-0.2206,lng:101.3609}]},
+  {id:'F06c',label:'F06C',afd:'6',qr:'PATROL-F06C-8D17',lat:-0.2204,lng:101.3606,titik:[{no:1,lat:-0.2204,lng:101.3606},{no:2,lat:-0.2206,lng:101.3609},{no:3,lat:-0.2208,lng:101.3612}]},
+  {id:'F06d',label:'F06D',afd:'6',qr:'PATROL-F06D-8D18',lat:-0.2206,lng:101.3609,titik:[{no:1,lat:-0.2206,lng:101.3609},{no:2,lat:-0.2208,lng:101.3612},{no:3,lat:-0.2210,lng:101.3615}]},
+  {id:'F06e',label:'F06E',afd:'6',qr:'PATROL-F06E-8D19',lat:-0.2208,lng:101.3612,titik:[{no:1,lat:-0.2208,lng:101.3612},{no:2,lat:-0.2210,lng:101.3615},{no:3,lat:-0.2212,lng:101.3618}]},
+  {id:'F06f',label:'F06F',afd:'6',qr:'PATROL-F06F-8D1A',lat:-0.2210,lng:101.3615,titik:[{no:1,lat:-0.2210,lng:101.3615},{no:2,lat:-0.2212,lng:101.3618},{no:3,lat:-0.2214,lng:101.3621}]},
+  {id:'F07a',label:'F07A',afd:'6',qr:'PATROL-F07A-8D34',lat:-0.2220,lng:101.3630,titik:[{no:1,lat:-0.2220,lng:101.3630},{no:2,lat:-0.2222,lng:101.3633},{no:3,lat:-0.2224,lng:101.3636}]},
+  {id:'F07b',label:'F07B',afd:'6',qr:'PATROL-F07B-8D35',lat:-0.2222,lng:101.3633,titik:[{no:1,lat:-0.2222,lng:101.3633},{no:2,lat:-0.2224,lng:101.3636},{no:3,lat:-0.2226,lng:101.3639}]},
+  {id:'F07c',label:'F07C',afd:'6',qr:'PATROL-F07C-8D36',lat:-0.2224,lng:101.3636,titik:[{no:1,lat:-0.2224,lng:101.3636},{no:2,lat:-0.2226,lng:101.3639},{no:3,lat:-0.2228,lng:101.3642}]},
+  {id:'F07d',label:'F07D',afd:'6',qr:'PATROL-F07D-8D37',lat:-0.2226,lng:101.3639,titik:[{no:1,lat:-0.2226,lng:101.3639},{no:2,lat:-0.2228,lng:101.3642},{no:3,lat:-0.2230,lng:101.3645}]},
+  {id:'F07e',label:'F07E',afd:'6',qr:'PATROL-F07E-8D38',lat:-0.2228,lng:101.3642,titik:[{no:1,lat:-0.2228,lng:101.3642},{no:2,lat:-0.2230,lng:101.3645},{no:3,lat:-0.2232,lng:101.3648}]},
+  {id:'F07f',label:'F07F',afd:'6',qr:'PATROL-F07F-8D39',lat:-0.2230,lng:101.3645,titik:[{no:1,lat:-0.2230,lng:101.3645},{no:2,lat:-0.2232,lng:101.3648},{no:3,lat:-0.2234,lng:101.3651}]},
+  {id:'F07g',label:'F07G',afd:'6',qr:'PATROL-F07G-8D3A',lat:-0.2232,lng:101.3648,titik:[{no:1,lat:-0.2232,lng:101.3648},{no:2,lat:-0.2234,lng:101.3651},{no:3,lat:-0.2236,lng:101.3654}]},
+  {id:'F07h',label:'F07H',afd:'6',qr:'PATROL-F07H-8D3B',lat:-0.2234,lng:101.3651,titik:[{no:1,lat:-0.2234,lng:101.3651},{no:2,lat:-0.2236,lng:101.3654},{no:3,lat:-0.2238,lng:101.3657}]},
+  {id:'F07i',label:'F07I',afd:'6',qr:'PATROL-F07I-8D3C',lat:-0.2236,lng:101.3654,titik:[{no:1,lat:-0.2236,lng:101.3654},{no:2,lat:-0.2238,lng:101.3657},{no:3,lat:-0.2240,lng:101.3660}]},
+  {id:'F08a',label:'F08A',afd:'6',qr:'PATROL-F08A-8D53',lat:-0.2240,lng:101.3660,titik:[{no:1,lat:-0.2240,lng:101.3660},{no:2,lat:-0.2242,lng:101.3663},{no:3,lat:-0.2244,lng:101.3666}]},
+  {id:'F08b',label:'F08B',afd:'6',qr:'PATROL-F08B-8D54',lat:-0.2242,lng:101.3663,titik:[{no:1,lat:-0.2242,lng:101.3663},{no:2,lat:-0.2244,lng:101.3666},{no:3,lat:-0.2246,lng:101.3669}]},
+  {id:'F08c',label:'F08C',afd:'6',qr:'PATROL-F08C-8D55',lat:-0.2244,lng:101.3666,titik:[{no:1,lat:-0.2244,lng:101.3666},{no:2,lat:-0.2246,lng:101.3669},{no:3,lat:-0.2248,lng:101.3672}]},
+  {id:'F08d',label:'F08D',afd:'6',qr:'PATROL-F08D-8D56',lat:-0.2246,lng:101.3669,titik:[{no:1,lat:-0.2246,lng:101.3669},{no:2,lat:-0.2248,lng:101.3672},{no:3,lat:-0.2250,lng:101.3675}]},
+  {id:'F08e',label:'F08E',afd:'6',qr:'PATROL-F08E-8D57',lat:-0.2248,lng:101.3672,titik:[{no:1,lat:-0.2248,lng:101.3672},{no:2,lat:-0.2250,lng:101.3675},{no:3,lat:-0.2252,lng:101.3678}]},
+  {id:'F08f',label:'F08F',afd:'6',qr:'PATROL-F08F-8D58',lat:-0.2250,lng:101.3675,titik:[{no:1,lat:-0.2250,lng:101.3675},{no:2,lat:-0.2252,lng:101.3678},{no:3,lat:-0.2254,lng:101.3681}]},
+  {id:'F08g',label:'F08G',afd:'6',qr:'PATROL-F08G-8D59',lat:-0.2252,lng:101.3678,titik:[{no:1,lat:-0.2252,lng:101.3678},{no:2,lat:-0.2254,lng:101.3681},{no:3,lat:-0.2256,lng:101.3684}]},
+  {id:'F08h',label:'F08H',afd:'6',qr:'PATROL-F08H-8D5A',lat:-0.2254,lng:101.3681,titik:[{no:1,lat:-0.2254,lng:101.3681},{no:2,lat:-0.2256,lng:101.3684},{no:3,lat:-0.2258,lng:101.3687}]},
+  {id:'F10a',label:'F10A',afd:'6',qr:'PATROL-F10A-901C',lat:-0.2260,lng:101.3700,titik:[{no:1,lat:-0.2260,lng:101.3700},{no:2,lat:-0.2262,lng:101.3703},{no:3,lat:-0.2264,lng:101.3706}]},
+];
+let allReports=[];let filterStatus='all';let maps={};let secMarkers={};let qrGenerated=false;
+let trackingData=[];
+let activeDate=''; // format: 'DD/MM/YYYY' atau '' = semua
+
+// Ambil tanggal dari string waktu — handle semua format Google Sheets
+function extractDate(waktu) {
+  if (!waktu) return '';
+  const s = String(waktu).trim();
+
+  // Format ID paling umum: '10/3/2026, 08.00.00' atau '10/03/2026 08:00'
+  const m1 = s.match(/^(\d{1,2})[\/](\d{1,2})[\/](\d{4})/);
+  if (m1) return `${m1[1].padStart(2,'0')}/${m1[2].padStart(2,'0')}/${m1[3]}`;
+
+  // ISO: '2026-03-10T...' atau '2026-03-10 ...'
+  const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m2) return `${m2[3]}/${m2[2]}/${m2[1]}`;
+
+  // Format dengan dash: '10-3-2026'
+  const m3 = s.match(/^(\d{1,2})[-](\d{1,2})[-](\d{4})/);
+  if (m3) return `${m3[1].padStart(2,'0')}/${m3[2].padStart(2,'0')}/${m3[3]}`;
+
+  return '';
+}
+
+function getFilteredReports() {
+  if (!activeDate) return allReports;
+  return allReports.filter(r => {
+    const d1 = extractDate(r.waktu);
+    const d2 = extractDate(r.timestamp);
+    return d1 === activeDate || d2 === activeDate;
+  });
+}
+
+function getFilteredTracking() {
+  if (!activeDate) return trackingData;
+  return trackingData.filter(r => extractDate(r['Timestamp']) === activeDate);
+}
+
+function onDateChange() {
+  const val = document.getElementById('global-date').value; // format: YYYY-MM-DD
+  if (!val) { activeDate=''; } else {
+    const [y,m,d] = val.split('-');
+    activeDate = `${d}/${m}/${y}`;
+  }
+  const isToday = val === new Date().toISOString().slice(0,10);
+  document.getElementById('btn-today').classList.toggle('active', isToday);
+  const lbl = document.getElementById('date-filter-label');
+  if (activeDate) { lbl.style.display='inline'; lbl.textContent = `📅 ${activeDate}`; }
+  else { lbl.style.display='none'; }
+  // Reload data dari server + re-render
+  loadData();
+  if (document.getElementById('tab-tracker').classList.contains('active')) {
+    loadTracking();
+  }
+}
+
+function setToday() {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('global-date').value = today;
+  onDateChange();
+}
+let trackerMap=null;
+let trackerPolylines=[];
+let trackerMarkers=[];
+const TRACK_COLORS=['#00D4FF','#FFB800','#00FF88','#FF6B6B','#B44DFF','#FF8C00','#39FF14','#FF69B4','#00BFFF'];
+function getColor(nama){
+  const names=[...new Set(trackingData.map(r=>r['Nama']).filter(Boolean))].sort();
+  const i=names.indexOf(nama);
+  return TRACK_COLORS[i>=0?i%TRACK_COLORS.length:0];
+}
+
+setInterval(()=>{document.getElementById('clock-top').textContent=new Date().toLocaleTimeString('id-ID');},1000);
+
+function switchTab(tab,el){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  el.classList.add('active');
+  if(tab==='map'&&!maps.full)initMap('live-map-full','full');
+  if(tab==='tracker'){initTrackerMap();loadTracking();}
+  if(tab==='qrcodes'&&!qrGenerated)generateQRCodes(activeQRFilter);
+}
+
+function initMap(elId,key){
+  const lats=BLOK_CONFIG.map(b=>b.lat), lngs=BLOK_CONFIG.map(b=>b.lng);
+  const centerLat=(Math.min(...lats)+Math.max(...lats))/2;
+  const centerLng=(Math.min(...lngs)+Math.max(...lngs))/2;
+  maps[key]=L.map(elId,{zoomControl:true,scrollWheelZoom:key==='full'}).setView([centerLat,centerLng],14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'©CartoDB',maxZoom:19}).addTo(maps[key]);
+  BLOK_CONFIG.forEach(blok=>{
+    const icon=L.divIcon({html:`<div style="background:#00D4FF;color:#000;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;font-family:Rajdhani,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,212,255,.5);">${blok.id}</div>`,className:'',iconAnchor:[20,10]});
+    L.marker([blok.lat,blok.lng],{icon}).addTo(maps[key]).bindPopup(`<b>${blok.label}</b>`);
+  });
+  updateMapMarkers(key);
+}
+
+function updateMapMarkers(key){
+  const map=maps[key];if(!map)return;
+  if(secMarkers[key])secMarkers[key].forEach(m=>map.removeLayer(m));
+  secMarkers[key]=[];
+  const latest={};
+  getFilteredReports().forEach(r=>{if(r.gpsLat&&r.gpsLng&&!latest[r.nama])latest[r.nama]=r;});
+  const positions=[];
+  Object.values(latest).forEach(r=>{
+    const c=r.status==='AMAN'?'#00FF88':'#FF4444';
+    const icon=L.divIcon({html:`<div style="position:relative"><div style="width:14px;height:14px;border-radius:50%;background:${c};border:2px solid #fff;box-shadow:0 0 12px ${c};"></div><div style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:${c};border-radius:4px;padding:2px 6px;font-size:10px;white-space:nowrap;">${r.nama}</div></div>`,className:'',iconAnchor:[7,7]});
+    const m=L.marker([parseFloat(r.gpsLat),parseFloat(r.gpsLng)],{icon}).addTo(map);
+    m.bindPopup(`<b>${r.nama}</b><br>${r.blok}<br>Status: <b>${r.status}</b><br>${r.waktu}`);
+    secMarkers[key].push(m);
+    positions.push([parseFloat(r.gpsLat),parseFloat(r.gpsLng)]);
+  });
+  // Auto fit ke posisi semua petugas
+  if(positions.length===1){
+    map.setView(positions[0],17);
+  } else if(positions.length>1){
+    map.fitBounds(positions,{padding:[50,50],maxZoom:17,animate:true});
+  }
+}
+
+// ============================================================
+// DELETE / HAPUS DATA
+// ============================================================
+const ADMIN_PASSWORD = 'admin123';
+let deleteTarget = null; // { type: 'all-reports' | 'all-tracking' | 'single-report', id? }
+
+function openDeleteModal(type, id) {
+  deleteTarget = { type, id };
+  const titles = {
+    'all-reports':  ['Hapus Semua Laporan', 'Semua data laporan patroli akan dihapus permanen dari sistem. Tindakan ini tidak bisa dibatalkan.'],
+    'all-tracking': ['Hapus Semua Tracking', 'Semua data tracking GPS petugas akan dihapus permanen dari sistem. Tindakan ini tidak bisa dibatalkan.'],
+    'single-report':['Hapus Laporan Ini', 'Laporan ini akan dihapus permanen dari sistem. Tindakan ini tidak bisa dibatalkan.'],
+  };
+  const [title, sub] = titles[type] || ['Hapus Data', 'Data akan dihapus permanen.'];
+  document.getElementById('del-modal-title').textContent = title;
+  document.getElementById('del-modal-sub').textContent = sub;
+  document.getElementById('del-pw-input').value = '';
+  document.getElementById('del-pw-err').textContent = '';
+  document.getElementById('del-modal').classList.add('open');
+  setTimeout(() => document.getElementById('del-pw-input').focus(), 100);
+}
+
+function closeDeleteModal() {
+  document.getElementById('del-modal').classList.remove('open');
+  deleteTarget = null;
+}
+
+function confirmDelete() {
+  const pw = document.getElementById('del-pw-input').value;
+  const errEl = document.getElementById('del-pw-err');
+  if (pw !== ADMIN_PASSWORD) {
+    errEl.textContent = '❌ Password salah! Coba lagi.';
+    document.getElementById('del-pw-input').value = '';
+    document.getElementById('del-pw-input').focus();
+    return;
+  }
+  errEl.textContent = '';
+  closeDeleteModal();
+  if (!deleteTarget) return;
+
+  const { type, id } = deleteTarget;
+
+  if (type === 'all-reports') {
+    allReports = [];
+    updateStats(); renderLatest(); renderAllReports(); renderMapTrack();
+    updateMapMarkers('mini'); updateMapMarkers('full');
+    sendDeleteToSheet('deleteAllReports');
+    showDelToast('Semua laporan berhasil dihapus');
+  } else if (type === 'all-tracking') {
+    trackingData = [];
+    renderTrackerMap(); renderDurasi(); renderTrackList();
+    sendDeleteToSheet('deleteAllTracking');
+    showDelToast('Semua data tracking berhasil dihapus');
+  } else if (type === 'single-report') {
+    allReports = allReports.filter(r => r.id !== id);
+    updateStats(); renderLatest(); renderAllReports(); renderMapTrack();
+    updateMapMarkers('mini'); updateMapMarkers('full');
+    document.getElementById('modal').classList.remove('open');
+    sendDeleteToSheet('deleteReport', id);
+    showDelToast('Laporan berhasil dihapus');
+  }
+}
+
+function sendDeleteToSheet(action, id) {
+  // Kirim request hapus ke Apps Script — perlu handler di GAS
+  const payload = { action, id: id || null, password: ADMIN_PASSWORD };
+  if (navigator.onLine) {
+    fetch(APPS_SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(() => {});
+  }
+}
+
+let delToastTimer = null;
+function showDelToast(msg) {
+  // Reuse sync-toast style — buat elemen baru
+  let t = document.getElementById('del-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'del-toast';
+    t.style.cssText = 'display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;background:#d32f2f;color:#fff;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.3);align-items:center;gap:8px;white-space:nowrap;';
+    document.body.appendChild(t);
+  }
+  t.textContent = '🗑️ ' + msg;
+  t.style.display = 'flex';
+  if (delToastTimer) clearTimeout(delToastTimer);
+  delToastTimer = setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+function loadData(){
+  document.getElementById('report-count-badge').textContent = '...';
+  fetch(APPS_SCRIPT_URL)
+    .then(r => {
+      if (!r.ok && r.type !== 'opaque') throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      if (!Array.isArray(data) || data.length === 0) {
+        allReports = [];
+      } else {
+        allReports = data.map((row, i) => ({
+          id: row['ID'] || Date.now() - i,
+          nama: row['Nama'] || '',
+          shift: row['Shift'] || '',
+          blok: row['Pos'] || row['Blok'] || '',
+          waktu: row['Waktu Patroli'] || row['Timestamp'] || '',
+          timestamp: row['Timestamp'] || '',
+          gpsLat: row['GPS Lat'] || '',
+          gpsLng: row['GPS Lng'] || '',
+          status: row['Status'] || '',
+          catatan: row['Catatan'] || '',
+          foto: row['Foto'] || row['Link Foto'] || '',
+        }));
+      }
+      updateStats(); renderLatest(); renderAllReports(); renderMapTrack();
+      updateMapMarkers('mini'); updateMapMarkers('full');
+      document.getElementById('report-count-badge').textContent = getFilteredReports().length;
+    })
+    .catch(err => {
+      console.error('Gagal fetch data:', err);
+      document.getElementById('report-count-badge').textContent = '!';
+      // Tampilkan error di overview biar keliatan
+      const el = document.getElementById('latest-list');
+      if (el) el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p style="color:var(--danger)">Gagal koneksi ke server</p><p style="font-size:12px;margin-top:8px;color:var(--muted2)">Pastikan Apps Script sudah di-deploy ulang dengan akses <b>"Anyone"</b></p></div>`;
+    });
+}
+
+function updateStats(){
+  const r=getFilteredReports();
+  document.getElementById('stat-total').textContent=r.length;
+  document.getElementById('stat-aman').textContent=r.filter(x=>x.status==='AMAN').length;
+  document.getElementById('stat-tidak').textContent=r.filter(x=>x.status==='TIDAK AMAN').length;
+  document.getElementById('stat-petugas').textContent=new Set(r.map(x=>x.nama)).size;
+}
+
+function cardHTML(r){
+  const a=r.status==='AMAN';
+  const fotoSrc = r.foto && r.foto.startsWith('data:image') ? r.foto : (r.foto && r.foto.startsWith('http') ? r.foto : '');
+  const ph=fotoSrc?`<img class="report-photo" src="${fotoSrc}" alt="foto" onerror="this.outerHTML='<div class=\\'report-photo-placeholder\\'>📸</div>'">`:`<div class="report-photo-placeholder">📸</div>`;
+  return`<div class="report-card ${a?'aman':'tidak'}" onclick="openModal(${r.id})">${ph}<div class="report-info"><div class="report-top"><span class="report-name">${r.nama}</span><div style="display:flex;gap:6px;align-items:center;"><span class="report-badge ${a?'badge-aman':'badge-tidak'}">${r.status}</span><button class="del-single-btn" onclick="event.stopPropagation();openDeleteModal('single-report',${r.id})">🗑️</button></div></div><div class="report-meta"><span>📍 ${r.blok}</span><span>⏰ ${(r.shift||'').split(' ')[0]}</span><span>🕐 ${r.waktu}</span>${r.gpsLat?`<span>📡 ${r.gpsLat},${r.gpsLng}</span>`:''}</div>${r.catatan?`<div class="report-notes">💬 "${r.catatan}"</div>`:''}</div></div>`;
+}
+
+function renderLatest(){const el=document.getElementById('latest-list');const items=getFilteredReports().slice(0,5);el.innerHTML=items.length?items.map(cardHTML).join(''):`<div class="empty-state"><div class="empty-icon">📭</div><p>Belum ada laporan${activeDate?' pada '+activeDate:''}</p></div>`;}
+function renderAllReports(){const el=document.getElementById('all-reports-list');const base=getFilteredReports();let items=filterStatus==='all'?base:base.filter(r=>r.status===filterStatus);el.innerHTML=items.length?items.map(cardHTML).join(''):`<div class="empty-state"><div class="empty-icon">🔍</div><p>Tidak ada laporan${activeDate?' pada '+activeDate:''}</p></div>`;}
+function renderMapTrack(){const el=document.getElementById('map-track-list');el.innerHTML=getFilteredReports().slice(0,10).map(r=>{const a=r.status==='AMAN';return`<div class="report-card ${a?'aman':'tidak'}" onclick="openModal(${r.id})"><div class="report-photo-placeholder">${a?'✅':'🚨'}</div><div class="report-info"><div class="report-top"><span class="report-name">${r.nama} — ${r.blok}</span><span class="report-badge ${a?'badge-aman':'badge-tidak'}">${r.status}</span></div><div class="report-meta"><span>🕐 ${r.waktu}</span>${r.gpsLat?`<span>📡 ${r.gpsLat}, ${r.gpsLng}</span>`:'<span style="color:var(--muted)">GPS tidak tersedia</span>'}</div></div></div>`;}).join('')||`<div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada data${activeDate?' pada '+activeDate:''}</p></div>`;}
+
+function filterReports(val,el){filterStatus=val;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderAllReports();}
+
+function openModal(id){
+  const r=allReports.find(x=>x.id===id);if(!r)return;
+  const a=r.status==='AMAN';
+  document.getElementById('modal-body').innerHTML=`
+    ${(r.foto && (r.foto.startsWith('data:image') || r.foto.startsWith('http')))?`<img class="modal-photo" src="${r.foto}" alt="foto" onerror="this.style.display='none'">`:'<div style="background:var(--card2);border-radius:10px;padding:40px;text-align:center;margin-bottom:16px;color:var(--muted2);">📸 Tidak ada foto</div>'}
+    <div class="modal-row"><span class="modal-key">👤 Nama</span><span class="modal-val">${r.nama}</span></div>
+    <div class="modal-row"><span class="modal-key">📍 Blok</span><span class="modal-val">${r.blok}</span></div>
+    <div class="modal-row"><span class="modal-key">⏰ Shift</span><span class="modal-val">${r.shift}</span></div>
+    <div class="modal-row"><span class="modal-key">🕐 Waktu</span><span class="modal-val">${r.waktu}</span></div>
+    <div class="modal-row"><span class="modal-key">📡 GPS</span><span class="modal-val">${r.gpsLat?r.gpsLat+', '+r.gpsLng:'Tidak tersedia'}</span></div>
+    <div class="modal-row"><span class="modal-key">🚦 Status</span><span class="modal-val" style="color:${a?'var(--green)':'var(--danger)'};font-weight:700">${r.status}</span></div>
+    ${r.catatan?`<div class="modal-row"><span class="modal-key">📝 Catatan</span><span class="modal-val">${r.catatan}</span></div>`:''}
+    ${r.gpsLat?`<a href="https://maps.google.com/?q=${r.gpsLat},${r.gpsLng}" target="_blank" style="display:block;margin-top:14px;padding:10px;background:var(--card2);border-radius:8px;color:var(--accent);text-align:center;font-size:13px;text-decoration:none;">🗺️ Buka di Google Maps</a>`:''}
+    <button onclick="openDeleteModal('single-report',${r.id})" style="width:100%;margin-top:10px;padding:10px;border-radius:8px;border:1px solid rgba(255,68,68,.35);background:rgba(255,68,68,.08);color:var(--danger);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;">🗑️ Hapus Laporan Ini</button>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.remove('open');}
+
+function generateQRCodes(afdFilter){
+  afdFilter = afdFilter || 'all';
+  qrGenerated=true;
+  const grid=document.getElementById('qr-grid');
+  grid.innerHTML='';
+
+  const filtered = afdFilter==='all' ? BLOK_CONFIG : BLOK_CONFIG.filter(b=>b.afd===afdFilter);
+  const titikColors = {1:'#00D4FF', 2:'#00FF88', 3:'#FFB800'};
+
+  // Group by blok, render 1 section per blok berisi 3 QR cards
+  filtered.forEach(blok=>{
+    const section = document.createElement('div');
+    section.className = 'qr-blok-section';
+    section.dataset.afd = blok.afd;
+
+    const header = document.createElement('div');
+    header.className = 'qr-blok-header';
+    header.innerHTML = `<span class="qr-blok-name">${blok.label}</span><span class="qr-blok-afd">Afdeling ${blok.afd}</span><button class="qr-print-all-btn" onclick="printAllTitik('${blok.id}','${blok.label}','${blok.qr}')">🖨️ Print Semua Titik</button>`;
+    section.appendChild(header);
+
+    const row = document.createElement('div');
+    row.className = 'qr-titik-row';
+
+    blok.titik.forEach(t=>{
+      const card = document.createElement('div');
+      card.className = 'qr-card';
+      const safeId = blok.id.replace(/[^a-zA-Z0-9]/g,'') + 'T' + t.no;
+      const color = titikColors[t.no] || '#fff';
+      card.innerHTML = `
+        <div style="width:100%;height:4px;border-radius:2px;background:${color};margin-bottom:12px;"></div>
+        <div class="qr-card-title" style="color:${color}">Titik ${t.no}</div>
+        <div class="qr-card-sub">${blok.label} · Afdeling ${blok.afd}</div>
+        <div class="qr-code-wrap" id="qr-${safeId}"></div>
+        <div class="qr-code-id">${blok.qr}</div>
+        <div style="font-size:10px;color:var(--muted2);margin-bottom:8px;">📍 ${t.lat.toFixed(6)}, ${t.lng.toFixed(6)}</div>
+        <button class="qr-print-btn" onclick="printQR('${blok.label}','Titik ${t.no}','${blok.qr}','${t.lat}','${t.lng}')">🖨️ Print</button>
+      `;
+      row.appendChild(card);
+      setTimeout(()=>{
+        new QRCode(document.getElementById(`qr-${safeId}`),{text:blok.qr,width:130,height:130,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});
+      },100);
+    });
+
+    section.appendChild(row);
+    grid.appendChild(section);
+  });
+}
+
+let activeQRFilter = 'all';
+function filterQR(afd, el){
+  activeQRFilter = afd;
+  document.querySelectorAll('.filter-group .filter-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  generateQRCodes(afd);
+}
+
+function printAllTitik(id, label, qrData){
+  const blok = BLOK_CONFIG.find(b=>b.id===id);
+  if(!blok) return;
+  const win = window.open('','_blank');
+  const titikColors = {1:'#0066cc', 2:'#008800', 3:'#cc7700'};
+  let cardsHTML = blok.titik.map(t=>`
+    <div style="display:inline-block;width:260px;margin:16px;text-align:center;border:2px solid #ddd;border-radius:12px;padding:20px;vertical-align:top;">
+      <div style="height:6px;border-radius:3px;background:${titikColors[t.no]||'#333'};margin-bottom:12px;"></div>
+      <h2 style="margin-bottom:2px;color:${titikColors[t.no]||'#333'}">${label}</h2>
+      <p style="color:#555;font-size:14px;margin-bottom:16px;">Titik Pantau ${t.no} · Afdeling ${blok.afd}</p>
+      <div id="qp-${id}T${t.no}" style="display:flex;justify-content:center;"></div>
+      <p style="margin-top:10px;font-size:10px;font-family:monospace;color:#666;">${qrData}</p>
+      <p style="font-size:11px;color:#888;margin-top:4px;">📍 ${t.lat.toFixed(6)}, ${t.lng.toFixed(6)}</p>
+      <p style="font-size:11px;color:#999;margin-top:8px;">Tempel di Titik Pantau ${t.no}</p>
+    </div>
+  `).join('');
+  const qrInits = blok.titik.map(t=>`new QRCode(document.getElementById('qp-${id}T${t.no}'),{text:'${qrData}',width:200,height:200,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H});`).join('\n');
+  win.document.write(`<html><head><title>QR ${label} - Semua Titik</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>body{font-family:sans-serif;padding:30px;text-align:center;}@media print{.no-print{display:none;}}</style></head><body><h1 style="color:#333">QR Code: ${label}</h1><p class="no-print" style="color:#666">Klik Print untuk mencetak semua titik pantau</p><div>${cardsHTML}</div><button class="no-print" onclick="window.print()" style="margin-top:20px;padding:12px 28px;font-size:16px;background:#004b31;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨️ Print</button><script>${qrInits}setTimeout(()=>{},500);<\/script></body></html>`);
+}
+
+function printQR(label,titikLabel,qrData,lat,lng){
+  const win=window.open('','_blank');
+  win.document.write(`<html><head><title>QR ${label} ${titikLabel}</title><style>body{font-family:sans-serif;text-align:center;padding:40px;}h2{margin-bottom:4px;}p{color:#666;font-size:14px;margin-bottom:12px;}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script></head><body><h2>${label}</h2><p style="font-size:18px;font-weight:bold;color:#333;">${titikLabel}</p><div id="q" style="display:flex;justify-content:center;margin:16px 0;"></div><p style="font-size:11px;font-family:monospace;">${qrData}</p><p style="font-size:12px;color:#888;">📍 ${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}</p><p style="font-size:12px;color:#999;margin-top:8px;">Tempel di lokasi ${titikLabel}</p><script>new QRCode(document.getElementById('q'),{text:'${qrData}',width:260,height:260,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H});setTimeout(()=>window.print(),700);<\/script></body></html>`);
+}
+
+// =============================================
+// LIVE TRACKER
+// =============================================
+
+function initTrackerMap() {
+  if (trackerMap) { trackerMap.invalidateSize(); return; }
+  // Pakai koordinat tengah dari BLOK_CONFIG
+  const lats = BLOK_CONFIG.map(b=>b.lat), lngs = BLOK_CONFIG.map(b=>b.lng);
+  const centerLat = (Math.min(...lats)+Math.max(...lats))/2;
+  const centerLng = (Math.min(...lngs)+Math.max(...lngs))/2;
+  trackerMap = L.map('tracker-map',{zoomControl:true,scrollWheelZoom:true}).setView([centerLat,centerLng],14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'©CartoDB',maxZoom:19}).addTo(trackerMap);
+  // Marker blok patroli
+  BLOK_CONFIG.forEach(b=>{
+    const icon=L.divIcon({html:`<div style="background:var(--accent,#00D4FF);color:#000;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;font-family:Rajdhani,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,212,255,.5);">${b.id}</div>`,className:'',iconAnchor:[22,10]});
+    L.marker([b.lat,b.lng],{icon}).addTo(trackerMap).bindPopup(`<b>${b.label}</b><br><small>Blok Patroli</small>`);
+  });
+}
+
+function loadTracking() {
+  // Selalu fetch semua tracking (2 jam terakhir), filter tanggal di client
+  fetch(APPS_SCRIPT_URL+'?action=tracking')
+    .then(r=>r.json())
+    .then(data=>{
+      if(!Array.isArray(data)||data.length===0){
+        trackingData=[];
+        document.getElementById('tracker-durasi').innerHTML='<div class="empty-state"><div class="empty-icon">📡</div><p>Belum ada data tracking</p></div>';
+        document.getElementById('tracker-list').innerHTML='<div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada titik</p></div>';
+        return;
+      }
+      trackingData=data;
+      renderTrackerMap();
+      renderDurasi();
+      renderTrackList();
+    })
+    .catch(()=>{
+      document.getElementById('tracker-durasi').innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>Gagal memuat data tracking</p><p style="font-size:12px;margin-top:4px;color:var(--danger)">Periksa koneksi / deploy Apps Script terbaru</p></div>';
+    });
+}
+
+function renderTrackerMap() {
+  if(!trackerMap) return;
+  // Hapus layer lama
+  trackerPolylines.forEach(l=>trackerMap.removeLayer(l));
+  trackerMarkers.forEach(m=>trackerMap.removeLayer(m));
+  trackerPolylines=[]; trackerMarkers=[];
+
+  // Kelompokkan titik per nama, urutkan berdasarkan timestampMs
+  const byNama={};
+  getFilteredTracking().forEach(r=>{
+    const lat=parseFloat(r['GPS Lat']), lng=parseFloat(r['GPS Lng']);
+    if(!lat||!lng||isNaN(lat)||isNaN(lng)) return;
+    if(!byNama[r['Nama']]) byNama[r['Nama']]=[];
+    byNama[r['Nama']].push({lat,lng,ts:Number(r['TimestampMs'])||0,blok:r['Blok']||r['Pos']||'',waktu:r['Timestamp']||''});
+  });
+
+  const allBounds=[];
+  Object.entries(byNama).forEach(([nama,pts])=>{
+    const color=getColor(nama);
+    pts.sort((a,b)=>a.ts-b.ts);
+    const latlngs=pts.map(p=>[p.lat,p.lng]);
+    allBounds.push(...latlngs);
+
+    // Garis jalur
+    const poly=L.polyline(latlngs,{color,weight:3,opacity:0.8,dashArray:'8 6'}).addTo(trackerMap);
+    trackerPolylines.push(poly);
+
+    // Titik-titik kecil sepanjang jalur
+    pts.slice(0,-1).forEach(p=>{
+      const dot=L.circleMarker([p.lat,p.lng],{radius:3,color,fillColor:color,fillOpacity:0.5,weight:1}).addTo(trackerMap);
+      trackerMarkers.push(dot);
+    });
+
+    // Titik terakhir (lebih besar + label nama)
+    const last=pts[pts.length-1];
+    const endIcon=L.divIcon({
+      html:`<div style="position:relative">
+        <div style="width:16px;height:16px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 0 14px ${color};"></div>
+        <div style="position:absolute;top:-24px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.9);color:${color};border-radius:5px;padding:2px 8px;font-size:11px;white-space:nowrap;font-weight:700;border:1px solid ${color}44;">${nama}</div>
+      </div>`,
+      className:'', iconAnchor:[8,8]
+    });
+    const endM=L.marker([last.lat,last.lng],{icon:endIcon}).addTo(trackerMap)
+      .bindPopup(`<b style="color:${color}">${nama}</b><br>Blok: <b>${last.blok||'-'}</b><br>⏱ ${last.waktu}<br><a href="https://maps.google.com/?q=${last.lat},${last.lng}" target="_blank" style="color:#00D4FF;">Buka di Maps →</a>`);
+    trackerMarkers.push(endM);
+  });
+
+  if(allBounds.length>0) trackerMap.fitBounds(allBounds,{padding:[40,40],maxZoom:17});
+}
+
+function renderDurasi() {
+  const el=document.getElementById('tracker-durasi');
+  const filtered=getFilteredTracking();
+  if(!filtered.length){ el.innerHTML=`<div class="empty-state"><div class="empty-icon">📡</div><p>Belum ada data tracking${activeDate?' pada '+activeDate:''}</p></div>`; return; }
+
+  // Kelompokkan per nama
+  const byNama={};
+  filtered.forEach(r=>{
+    if(!r['Nama']) return;
+    if(!byNama[r['Nama']]) byNama[r['Nama']]={pts:[],shift:r['Shift']||''};
+    byNama[r['Nama']].pts.push({
+      ts: Number(r['TimestampMs'])||0,
+      blok: r['Blok']||r['Pos']||'-',
+      waktu: r['Timestamp']||''
+    });
+  });
+
+  // Hitung max menit untuk normalisasi progress bar
+  const allMenit=Object.values(byNama).map(v=>{
+    const s=v.pts.sort((a,b)=>a.ts-b.ts);
+    return s.length<2?0:Math.round((s[s.length-1].ts-s[0].ts)/60000);
+  });
+  const maxMenit=Math.max(...allMenit,1);
+
+  let html='';
+  Object.entries(byNama).forEach(([nama,val])=>{
+    const pts=val.pts.sort((a,b)=>a.ts-b.ts);
+    const color=getColor(nama);
+    const totalMs=pts.length<2?0:(pts[pts.length-1].ts-pts[0].ts);
+    const totalMenit=Math.round(totalMs/60000);
+    const jam=Math.floor(totalMenit/60), menit=totalMenit%60;
+    const durasiStr=jam>0?`${jam}j ${menit}m`:`${totalMenit} mnt`;
+    const mulai=pts[0].ts?new Date(pts[0].ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'-';
+    const terakhir=pts[pts.length-1].ts?new Date(pts[pts.length-1].ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'-';
+    const blokAktif=pts[pts.length-1].blok;
+    const pct=Math.min(100,Math.round((totalMenit/maxMenit)*100));
+
+    html+=`<div class="durasi-card" style="border-top-color:${color}">
+      <div class="durasi-head">
+        <div class="durasi-nama" style="color:${color}">👤 ${nama}</div>
+        <div class="durasi-shift-badge">${val.shift||'—'}</div>
+      </div>
+      <div class="durasi-stats-row">
+        <div class="durasi-stat-box">
+          <div class="durasi-stat-num" style="color:${color}">${durasiStr}</div>
+          <div class="durasi-stat-lbl">Total Durasi</div>
+        </div>
+        <div class="durasi-stat-box">
+          <div class="durasi-stat-num" style="color:${color}">${pts.length}</div>
+          <div class="durasi-stat-lbl">Titik Tercatat</div>
+        </div>
+        <div class="durasi-stat-box">
+          <div class="durasi-stat-num" style="color:${color};font-size:15px">${blokAktif}</div>
+          <div class="durasi-stat-lbl">Blok Aktif</div>
+        </div>
+        <div class="durasi-stat-box">
+          <div class="durasi-stat-num" style="color:${color};font-size:15px">${terakhir}</div>
+          <div class="durasi-stat-lbl">Update Terakhir</div>
+        </div>
+      </div>
+      <div class="durasi-info-row">
+        <span>🕐 Mulai: ${mulai}</span>
+        <span>📡 ${pts.length} titik GPS</span>
+      </div>
+      <div class="durasi-bar-bg">
+        <div class="durasi-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${color},${color}66);"></div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+function renderTrackList() {
+  const el=document.getElementById('tracker-list');
+  const filtered=getFilteredTracking();
+  if(!filtered.length){ el.innerHTML=`<div class="empty-state"><div class="empty-icon">📍</div><p>Belum ada titik tracking${activeDate?' pada '+activeDate:''}</p></div>`; return; }
+  el.innerHTML=filtered.slice(0,30).map(r=>{
+    const color=getColor(r['Nama']||'');
+    const akurasi=r['Akurasi']||r['Akurasi GPS (m)']||'?';
+    return `<div class="track-point-item">
+      <div class="track-point-dot" style="background:${color};box-shadow:0 0 7px ${color};"></div>
+      <div class="track-point-info">
+        <div class="track-point-nama" style="color:${color}">${r['Nama']||'-'}</div>
+        <div class="track-point-meta">
+          <span>🔲 ${r['Blok']||r['Pos']||'-'}</span>
+          <span>🕐 ${r['Timestamp']||'-'}</span>
+          <span>🎯 ±${akurasi}m</span>
+          <span>📡 ${r['GPS Lat']||'-'}, ${r['GPS Lng']||'-'}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Auto refresh tracker tiap 30 detik (hanya saat tab aktif)
+setInterval(()=>{
+  if(document.getElementById('tab-tracker').classList.contains('active')) loadTracking();
+},30000);
+
+setInterval(loadData,30000);
+window.addEventListener('load',()=>{
+  // Set date picker ke hari ini (visual only, tidak filter dulu)
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('global-date').value = today;
+  document.getElementById('btn-today').classList.add('active');
+  const [y,m,d] = today.split('-');
+  activeDate = `${d}/${m}/${y}`;
+  document.getElementById('date-filter-label').style.display='inline';
+  document.getElementById('date-filter-label').textContent = `📅 ${activeDate}`;
+  // Load data
+  loadData();
+  setTimeout(()=>initMap('live-map','mini'),300);
+});
+</script>
+</body>
+</html>
